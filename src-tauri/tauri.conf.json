@@ -1,0 +1,46 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Claude Code",
+  "version": "0.1.0",
+  "identifier": "com.example.claudecode",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Claude Code",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 940,
+        "minHeight": 600,
+        "center": true,
+        "resizable": true,
+        "theme": "Dark",
+        "backgroundColor": "#262624",
+        "visible": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "DeveloperTool",
+    "shortDescription": "桌面版 AI 编码助手",
+    "longDescription": "基于 Tauri 2 + React 的桌面端 AI 编码助手，支持项目管理、多会话、技能系统与流式回复。",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

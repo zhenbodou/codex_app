@@ -1,0 +1,61 @@
+﻿async (page) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.evaluate(async () => {
+    const {useAuthStore} = await import('/src/store/auth.ts');
+    useAuthStore.setState({user:{id:'visual-user',name:'Visual Review',email:'visual@example.test',plan:'pro',avatarUrl:null,createdAt:new Date().toISOString()},token:null,restoring:false});
+  });
+  await page.getByRole('button', { name: '新建会话', exact: true }).waitFor();
+  await page.evaluate(async () => {
+    const {useWorkspaceStore} = await import('/src/store/workspace.ts');
+    const {useSettingsStore, applyTheme} = await import('/src/store/settings.ts');
+    const stamp = new Date().toISOString();
+    const project = {id:'visual-project',name:'claude-code-desktop',path:'D:/code/tauri/claude-code-desktop',description:null,color:'#D97757',createdAt:stamp,updatedAt:stamp,sessionCount:2};
+    useWorkspaceStore.setState({projects:[project],activeProjectId:project.id,activeSessionId:null,sessionsByProject:{[project.id]:[{id:'visual-session',projectId:project.id,title:'对齐桌面布局与动画',model:'test-model',status:'idle',createdAt:stamp,updatedAt:stamp,messageCount:2,skills:[]},{id:'visual-session-2',projectId:project.id,title:'检查项目结构',model:'test-model',status:'idle',createdAt:stamp,updatedAt:stamp,messageCount:0,skills:[]}]}});
+    const settings={theme:'light',accent:'#D97757',fontSize:14,model:'test-model',temperature:1,maxTokens:4096,backendMode:'mock',apiBaseUrl:'',notifications:false,sound:false,autoCompact:false,showThinking:true,streamSpeed:20};
+    useSettingsStore.setState({settings,models:[{id:'test-model',name:'Claude Sonnet',contextWindow:200000,description:'Visual fixture'}]});
+    applyTheme(settings);
+  });
+  await page.screenshot({path:'output/playwright/welcome-light.png'});
+  console.log('welcome', await page.locator('.desktop-composer').boundingBox());
+  await page.getByRole('button',{name:'了解代码库',exact:true}).click();
+  if (!(await page.getByRole('textbox',{name:'给 Claude 的任务'}).inputValue()).includes('目录结构')) throw Error('Suggestion did not populate composer');
+  await page.getByRole('button',{name:'选择模型',exact:true}).click();
+  await page.getByRole('listbox',{name:'模型',exact:true}).waitFor();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button',{name:'会话详情',exact:true}).click();
+  await page.getByRole('complementary',{name:'会话详情',exact:true}).waitFor();
+  await page.screenshot({path:'output/playwright/details-light.png'});
+  await page.getByRole('separator',{name:'调整详情面板宽度'}).focus();
+  await page.keyboard.press('ArrowLeft');
+  if (await page.getByRole('separator').getAttribute('aria-valuenow') !== '320') throw Error('Resize keyboard failed');
+  await page.getByRole('button',{name:'关闭会话详情',exact:true}).click();
+  await page.getByRole('textbox',{name:'搜索会话',exact:true}).fill('不存在的会话');
+  await page.getByText('没有匹配的会话',{exact:true}).waitFor();
+  await page.getByRole('textbox',{name:'搜索会话',exact:true}).fill('');
+  await page.keyboard.press('Control+o');
+  const mode = await page.evaluate(async()=> (await import('/src/store/ui.ts')).useUiStore.getState().transcriptView);
+  if(mode !== 'thinking') throw Error('Ctrl+O failed: '+mode);
+  await page.getByRole('textbox',{name:'给 Claude 的任务'}).focus();
+  await page.keyboard.press('Shift+Tab');
+  const permission = await page.evaluate(async()=> (await import('/src/store/ui.ts')).useUiStore.getState().uiMode);
+  if(permission !== 'normal') throw Error('Shift+Tab changed permissions');
+  await page.evaluate(async () => {
+    const {useChatStore}=await import('/src/store/chat.ts');
+    const {useWorkspaceStore}=await import('/src/store/workspace.ts');
+    const {useSettingsStore,applyTheme}=await import('/src/store/settings.ts');
+    useWorkspaceStore.setState({activeSessionId:'visual-session'});
+    const stamp = new Date().toISOString();
+    useChatStore.setState({messages:[{id:'u1',sessionId:'visual-session',role:'user',blocks:[{type:'text',text:'请检查桌面布局和动画。'}],status:'done',createdAt:stamp,model:null,usage:null},{id:'a1',sessionId:'visual-session',role:'assistant',blocks:[{type:'thinking',thinking:'检查界面布局、状态与过渡效果。',durationMs:1800},{type:'tool_use',id:'t1',name:'Read',input:{file_path:'src/views/Shell.tsx'},status:'success',result:'Read 120 lines\nexport function Shell() {}',durationMs:120},{type:'text',text:'已检查主要界面。\n\n- 会话侧栏支持搜索和状态筛选\n- 输入区可选择项目与模型\n- 工具输出可展开查看\n\n接下来运行构建并检查窄窗口布局。'}],status:'done',createdAt:stamp,model:'Claude Sonnet',usage:{inputTokens:12000,outputTokens:1200,cacheReadTokens:2000}}],loading:false});
+    applyTheme({...useSettingsStore.getState().settings,theme:'dark'});
+  });
+  await page.screenshot({path:'output/playwright/conversation-dark.png'});
+  await page.getByRole('button',{name:/Read.*Shell/}).click();
+  await page.getByText('export function Shell() {}',{exact:false}).waitFor();
+  await page.setViewportSize({width:940,height:600});
+  await page.screenshot({path:'output/playwright/conversation-minimum.png'});
+  const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);
+  if(overflow) throw Error('Horizontal overflow at minimum window size');
+  await page.emulateMedia({reducedMotion:'reduce'});
+  const animation=await page.evaluate(()=>getComputedStyle(document.querySelector('.desktop-icon')).transitionDuration);
+  console.log('PASS: suggestions, model menu, details, resize, search, Ctrl+O, Shift+Tab, tools, minimum window; reduced motion='+animation);
+}

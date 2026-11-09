@@ -1,0 +1,13 @@
+{
+  "native": true,
+  "demoLoginChecked": true,
+  "runtimeErrors": [],
+  "url": "http://tauri.localhost/",
+  "checks": [
+    "native Tauri WebView",
+    "readable login when unauthenticated",
+    "real backend projects/settings load",
+    "composer",
+    "shortcut dialog"
+  ]
+}

@@ -1,0 +1,19 @@
+- generic [ref=f8e5]:
+  - generic [ref=f8e6]:
+    - generic [aria-hidden] [ref=f8e7]: ✳
+    - generic [ref=f8e8]:
+      - heading "Claude Code" [level=1] [ref=f8e9]
+      - paragraph [ref=f8e10]: 终端里的 AI 编程助手
+  - generic [ref=f8e11]:
+    - generic [ref=f8e12]:
+      - button "登录" [ref=f8e13] [cursor=pointer]
+      - button "注册" [ref=f8e15] [cursor=pointer]
+    - generic [ref=f8e16]:
+      - textbox "邮箱" [ref=f8e23]:
+        - /placeholder: you@example.com
+      - textbox "密码" [ref=f8e30]:
+        - /placeholder: 至少 6 位
+      - button "登录" [ref=f8e31] [cursor=pointer]
+    - generic [ref=f8e34]: 或
+    - button "填入演示账号" [ref=f8e38] [cursor=pointer]
+  - paragraph [ref=f8e42]: demo@claude.dev / demo1234登录即表示同意服务条款与隐私政策

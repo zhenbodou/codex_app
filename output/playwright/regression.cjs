@@ -1,0 +1,46 @@
+async (page) => {
+  const settle = async () => page.evaluate(async () => { await Promise.all(document.getAnimations().filter(a => a.effect?.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {}))); });
+  await page.setViewportSize({width:1440,height:900});
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.evaluate(async()=> {
+    const {api}=await import('/src/lib/api.ts');
+    const {useAuthStore}=await import('/src/store/auth.ts');
+    const {useWorkspaceStore}=await import('/src/store/workspace.ts');
+    const {useUiStore}=await import('/src/store/ui.ts');
+    window.visualCreates=0;
+    api.createSession=async (_token,req)=> { window.visualCreates++; return {id:'new-fixture',projectId:req.projectId,title:'新任务',model:'test-model',status:'idle',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),messageCount:0,skills:[]}; };
+    api.sendMessage=async (_token,sessionId,req)=> { await new Promise(resolve=>setTimeout(resolve,100)); return {id:'new-answer',sessionId,role:'assistant',blocks:[{type:'text',text:'收到：'+req.content}],status:'done',createdAt:new Date().toISOString(),model:'test-model',usage:null}; };
+    api.listSessions=async()=>useWorkspaceStore.getState().sessionsByProject['visual-project'];
+    useAuthStore.setState({token:'visual-only'});
+    useWorkspaceStore.getState().startNewSession();
+    useUiStore.setState({composerDraft:'',transcriptView:'normal',verbose:false});
+  });
+  await page.getByRole('textbox',{name:'给 Claude 的任务'}).fill('验证新会话发送');
+  await page.getByRole('button',{name:'发送',exact:true}).click();
+  await page.getByText('收到：验证新会话发送',{exact:true}).waitFor();
+  const state=await page.evaluate(async()=>({creates:window.visualCreates,messages:(await import('/src/store/chat.ts')).useChatStore.getState().messages.length}));
+  if(state.creates!==1||state.messages!==2) throw Error('New session race: '+JSON.stringify(state));
+  await page.getByRole('button',{name:'筛选会话',exact:true}).click();
+  await page.getByLabel('状态',{exact:true}).selectOption('streaming');
+  await page.getByText('没有匹配的会话',{exact:true}).waitFor();
+  await page.getByLabel('状态',{exact:true}).selectOption('all');
+  await page.getByRole('button',{name:'收起侧边栏',exact:true}).click();
+  await settle();
+  await page.waitForFunction(()=>document.querySelector('.desktop-sidebar').getBoundingClientRect().width<=1);
+  const width=await page.locator('.desktop-sidebar').evaluate(e=>e.getBoundingClientRect().width);
+  if(width>1)throw Error('Sidebar did not collapse');
+  await page.getByRole('button',{name:'切换侧边栏',exact:true}).click();
+  await page.getByRole('button',{name:'新建会话 Ctrl+N',exact:true}).click();
+  await settle();
+  await page.evaluate(async()=>{const s=await import('/src/store/settings.ts');s.applyTheme({...s.useSettingsStore.getState().settings,theme:'light'});});
+  await page.screenshot({path:'output/playwright/welcome-light.png'});
+  await page.getByRole('button',{name:'会话详情',exact:true}).click();
+  await settle();
+  await page.screenshot({path:'output/playwright/details-light.png'});
+  await page.setViewportSize({width:940,height:600});
+  await page.screenshot({path:'output/playwright/details-minimum.png'});
+  const covered=await page.locator('.desktop-composer').evaluate(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.bottom<=innerHeight;});
+  if(!covered) throw Error('Composer outside minimum window');
+  await page.getByRole('button',{name:'关闭会话详情',exact:true}).click();
+  return {passed:['new session creates once','first send preserves both messages','status filter','sidebar collapse','details pane','940x600 layout','reduced motion'],...state};
+}

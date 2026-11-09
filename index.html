@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Claude Code</title>
+    <style>
+      /* 首屏占位：避免 Rust 窗口出现后前端还没挂载时的白闪 */
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #262624;
+      }
+      #boot {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        gap: 14px;
+        color: #8b857c;
+        font: 500 13px ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+        letter-spacing: 0.06em;
+      }
+      #boot span {
+        animation: bootpulse 1.4s ease-in-out infinite;
+      }
+      @keyframes bootpulse {
+        0%,
+        100% {
+          opacity: 0.35;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="boot"><span>Claude</span></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

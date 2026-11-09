@@ -1,0 +1,17 @@
+- generic [ref=f12e5]:
+  - generic [ref=f12e22]:
+    - heading "Claude Code" [level=1] [ref=f12e23]
+    - paragraph [ref=f12e24]: 与你一起构建的编程伙伴
+  - generic [ref=f12e25]:
+    - generic [ref=f12e26]:
+      - button "登录" [ref=f12e27] [cursor=pointer]
+      - button "注册" [ref=f12e29] [cursor=pointer]
+    - generic [ref=f12e30]:
+      - textbox "邮箱" [ref=f12e37]:
+        - /placeholder: you@example.com
+      - textbox "密码" [ref=f12e44]:
+        - /placeholder: 至少 6 位
+      - button "登录" [ref=f12e45] [cursor=pointer]
+    - generic [ref=f12e48]: 或
+    - button "填入演示账号" [ref=f12e52] [cursor=pointer]
+  - paragraph [ref=f12e56]: demo@claude.dev / demo1234登录即表示同意服务条款与隐私政策
