@@ -26,20 +26,13 @@ macro_rules! client {
 // ─────────────────────────── 鉴权 ───────────────────────────
 
 #[tauri::command]
-pub async fn login(state: tauri::State<'_, AppState>, req: LoginRequest) -> AppResult<AuthResponse> {
+pub async fn login(
+    state: tauri::State<'_, AppState>,
+    req: LoginRequest,
+) -> AppResult<AuthResponse> {
     let state = state.inner().clone();
     let auth = client!(state).login(req).await?;
-    // 登录后同步该用户保存的后端模式（mock / remote）与 API 地址
-    auth_settings_mode(&state, &auth.token).await;
     Ok(auth)
-}
-
-/// 读取该用户的设置并应用其 backend_mode。失败时保持当前模式，
-/// 保证远程后端不可达也不会卡住登录流程。
-async fn auth_settings_mode(state: &AppState, token: &str) {
-    if let Ok(s) = state.api.client().await.get_settings(token).await {
-        state.api.set_mode(s.backend_mode, &s.api_base_url).await;
-    }
 }
 
 #[tauri::command]
@@ -97,7 +90,10 @@ pub async fn list_projects(
     token: String,
 ) -> AppResult<Vec<Project>> {
     let state = state.inner().clone();
-    client!(state).list_projects(&token).await.map_err(Into::into)
+    client!(state)
+        .list_projects(&token)
+        .await
+        .map_err(Into::into)
 }
 
 #[tauri::command]
@@ -316,11 +312,7 @@ pub async fn get_settings(
 ) -> AppResult<UserSettings> {
     let state = state.inner().clone();
     let settings = client!(state).get_settings(&token).await?;
-    state
-        .api
-        .set_mode(settings.backend_mode, &settings.api_base_url)
-        .await;
-    Ok(settings)
+    Ok(state.api.connection_settings(settings).await)
 }
 
 #[tauri::command]
@@ -331,11 +323,7 @@ pub async fn update_settings(
 ) -> AppResult<UserSettings> {
     let state = state.inner().clone();
     let settings = client!(state).update_settings(&token, patch).await?;
-    state
-        .api
-        .set_mode(settings.backend_mode, &settings.api_base_url)
-        .await;
-    Ok(settings)
+    Ok(state.api.connection_settings(settings).await)
 }
 
 /// 纯本地操作：强制切换后端模式。

@@ -160,7 +160,11 @@ pub enum ToolStatus {
 /// 一条消息由若干「内容块」组成，跟 Anthropic Messages API 的结构对齐：
 /// 正文、思考过程、工具调用各占一块，可以按顺序混排。
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(
+    tag = "type",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum ContentBlock {
     Text {
         text: String,
@@ -234,7 +238,11 @@ pub struct SendMessageRequest {
 /// 远程后端走 SSE，Tauri 侧转成 `llm-stream` 事件；两者的 payload 结构完全相同，
 /// 详见 docs/API.md 的「流式协议」一节。
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(
+    tag = "type",
+    rename_all = "snake_case",
+    rename_all_fields = "camelCase"
+)]
 pub enum StreamEvent {
     Start {
         message_id: String,

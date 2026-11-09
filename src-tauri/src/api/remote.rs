@@ -23,14 +23,14 @@ pub struct RemoteBackend {
 }
 
 impl RemoteBackend {
-    pub fn new() -> Self {
+    pub fn with_url(url: String) -> Self {
         let http = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(60))
+            .connect_timeout(std::time::Duration::from_secs(15))
             .build()
             .expect("构建 HTTP 客户端失败");
         RemoteBackend {
             http,
-            base_url: RwLock::new(UserSettings::default().api_base_url),
+            base_url: RwLock::new(url),
         }
     }
 
@@ -51,7 +51,10 @@ impl RemoteBackend {
         body: Option<B>,
     ) -> Result<T, AppError> {
         let url = self.url(path).await;
-        let mut req = self.http.request(method, &url);
+        let mut req = self
+            .http
+            .request(method, &url)
+            .timeout(std::time::Duration::from_secs(60));
         if !token.is_empty() {
             req = req.bearer_auth(token);
         }
@@ -65,7 +68,10 @@ impl RemoteBackend {
             .map_err(|e| AppError::Network(e.to_string()))?;
 
         if !resp.status().is_success() {
-            return Err(map_http(resp.status(), &resp.text().await.unwrap_or_default()));
+            return Err(map_http(
+                resp.status(),
+                &resp.text().await.unwrap_or_default(),
+            ));
         }
         resp.json::<T>()
             .await
@@ -81,7 +87,10 @@ impl RemoteBackend {
         body: Option<B>,
     ) -> Result<(), AppError> {
         let url = self.url(path).await;
-        let mut req = self.http.request(method, &url);
+        let mut req = self
+            .http
+            .request(method, &url)
+            .timeout(std::time::Duration::from_secs(60));
         if !token.is_empty() {
             req = req.bearer_auth(token);
         }
@@ -95,7 +104,10 @@ impl RemoteBackend {
             .map_err(|e| AppError::Network(e.to_string()))?;
 
         if !resp.status().is_success() {
-            return Err(map_http(resp.status(), &resp.text().await.unwrap_or_default()));
+            return Err(map_http(
+                resp.status(),
+                &resp.text().await.unwrap_or_default(),
+            ));
         }
         Ok(())
     }
@@ -175,9 +187,11 @@ impl Accumulator {
                 duration_ms,
                 ..
             } => {
-                let target = self.blocks.iter_mut().rev().find(|b| {
-                    matches!(b, ContentBlock::ToolUse { id, .. } if id == tool_id)
-                });
+                let target = self
+                    .blocks
+                    .iter_mut()
+                    .rev()
+                    .find(|b| matches!(b, ContentBlock::ToolUse { id, .. } if id == tool_id));
                 if let Some(ContentBlock::ToolUse {
                     status: s,
                     result: r,
@@ -274,8 +288,13 @@ impl ApiClient for RemoteBackend {
     }
 
     async fn get_project(&self, token: &str, id: &str) -> Result<Project, AppError> {
-        self.send::<Value, _>(reqwest::Method::GET, &format!("/projects/{id}"), token, None)
-            .await
+        self.send::<Value, _>(
+            reqwest::Method::GET,
+            &format!("/projects/{id}"),
+            token,
+            None,
+        )
+        .await
     }
 
     async fn update_project(
@@ -325,7 +344,12 @@ impl ApiClient for RemoteBackend {
             .await
     }
 
-    async fn rename_session(&self, token: &str, id: &str, title: &str) -> Result<Session, AppError> {
+    async fn rename_session(
+        &self,
+        token: &str,
+        id: &str,
+        title: &str,
+    ) -> Result<Session, AppError> {
         self.send(
             reqwest::Method::PATCH,
             &format!("/sessions/{id}"),
@@ -336,8 +360,13 @@ impl ApiClient for RemoteBackend {
     }
 
     async fn delete_session(&self, token: &str, id: &str) -> Result<(), AppError> {
-        self.send_empty::<Value>(reqwest::Method::DELETE, &format!("/sessions/{id}"), token, None)
-            .await
+        self.send_empty::<Value>(
+            reqwest::Method::DELETE,
+            &format!("/sessions/{id}"),
+            token,
+            None,
+        )
+        .await
     }
 
     async fn list_messages(&self, token: &str, session_id: &str) -> Result<Vec<Message>, AppError> {
@@ -377,24 +406,33 @@ impl ApiClient for RemoteBackend {
         }
 
         let mut stream = resp.bytes_stream();
-        let mut buf = String::new();
+        let mut buf = Vec::<u8>::new();
         let mut acc = Accumulator::default();
         let mut message_id = String::new();
         let mut model = None;
         let mut finished = false;
         let mut cancelled = false;
 
-        'outer: while let Some(chunk) = stream.next().await {
+        'outer: loop {
+            let chunk = tokio::select! {
+                chunk = stream.next() => match chunk { Some(chunk) => chunk, None => break },
+                _ = async { while !cancel.load(Ordering::Relaxed) { tokio::time::sleep(std::time::Duration::from_millis(50)).await; } } => {
+                    cancelled = true;
+                    break;
+                }
+            };
             if cancel.load(Ordering::Relaxed) {
                 cancelled = true;
                 break;
             }
             let bytes = chunk.map_err(|e| AppError::Network(e.to_string()))?;
-            buf.push_str(&String::from_utf8_lossy(&bytes));
+            buf.extend_from_slice(&bytes);
 
             // SSE 以空行分帧
-            while let Some(pos) = buf.find("\n\n") {
-                let frame: String = buf.drain(..pos + 2).collect();
+            while let Some(pos) = buf.windows(2).position(|w| w == b"\n\n") {
+                let frame_bytes: Vec<u8> = buf.drain(..pos + 2).collect();
+                let frame = String::from_utf8(frame_bytes)
+                    .map_err(|e| AppError::Internal(format!("Invalid SSE UTF-8: {e}")))?;
                 for line in frame.lines() {
                     let Some(data) = line.strip_prefix("data:") else {
                         continue;

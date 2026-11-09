@@ -30,14 +30,24 @@ pub trait ApiClient: Send + Sync {
     async fn register(&self, req: RegisterRequest) -> Result<AuthResponse, AppError>;
     async fn logout(&self, token: &str) -> Result<(), AppError>;
     async fn me(&self, token: &str) -> Result<User, AppError>;
-    async fn update_profile(&self, token: &str, req: UpdateProfileRequest) -> Result<User, AppError>;
-    async fn change_password(&self, token: &str, req: ChangePasswordRequest)
-    -> Result<(), AppError>;
+    async fn update_profile(
+        &self,
+        token: &str,
+        req: UpdateProfileRequest,
+    ) -> Result<User, AppError>;
+    async fn change_password(
+        &self,
+        token: &str,
+        req: ChangePasswordRequest,
+    ) -> Result<(), AppError>;
 
     // ── 项目 ──
     async fn list_projects(&self, token: &str) -> Result<Vec<Project>, AppError>;
-    async fn create_project(&self, token: &str, req: CreateProjectRequest)
-    -> Result<Project, AppError>;
+    async fn create_project(
+        &self,
+        token: &str,
+        req: CreateProjectRequest,
+    ) -> Result<Project, AppError>;
     async fn get_project(&self, token: &str, id: &str) -> Result<Project, AppError>;
     async fn update_project(
         &self,
@@ -48,11 +58,18 @@ pub trait ApiClient: Send + Sync {
     async fn delete_project(&self, token: &str, id: &str) -> Result<(), AppError>;
 
     // ── 会话 ──
-    async fn list_sessions(&self, token: &str, project_id: Option<&str>)
-    -> Result<Vec<Session>, AppError>;
-    async fn create_session(&self, token: &str, req: CreateSessionRequest)
+    async fn list_sessions(
+        &self,
+        token: &str,
+        project_id: Option<&str>,
+    ) -> Result<Vec<Session>, AppError>;
+    async fn create_session(
+        &self,
+        token: &str,
+        req: CreateSessionRequest,
+    ) -> Result<Session, AppError>;
+    async fn rename_session(&self, token: &str, id: &str, title: &str)
     -> Result<Session, AppError>;
-    async fn rename_session(&self, token: &str, id: &str, title: &str) -> Result<Session, AppError>;
     async fn delete_session(&self, token: &str, id: &str) -> Result<(), AppError>;
 
     // ── 消息 ──
@@ -70,8 +87,12 @@ pub trait ApiClient: Send + Sync {
 
     // ── 技能 ──
     async fn list_skills(&self, token: &str) -> Result<Vec<Skill>, AppError>;
-    async fn set_skill_enabled(&self, token: &str, id: &str, enabled: bool)
-    -> Result<Skill, AppError>;
+    async fn set_skill_enabled(
+        &self,
+        token: &str,
+        id: &str,
+        enabled: bool,
+    ) -> Result<Skill, AppError>;
 
     // ── 设置与元信息 ──
     async fn get_settings(&self, token: &str) -> Result<UserSettings, AppError>;
@@ -84,17 +105,32 @@ pub trait ApiClient: Send + Sync {
 pub struct Api {
     pub mock: Arc<mock::MockBackend>,
     pub remote: Arc<remote::RemoteBackend>,
+    connection_path: std::path::PathBuf,
     mode: RwLock<BackendMode>,
     base_url: RwLock<String>,
 }
 
 impl Api {
     pub fn new(data_dir: std::path::PathBuf) -> Self {
+        let connection_path = data_dir.join("connection.json");
+        let saved = std::fs::read(&connection_path)
+            .ok()
+            .and_then(|b| serde_json::from_slice::<Value>(&b).ok());
+        let mode = saved
+            .as_ref()
+            .and_then(|v| serde_json::from_value(v["mode"].clone()).ok())
+            .unwrap_or(BackendMode::Remote);
+        let url = saved
+            .as_ref()
+            .and_then(|v| v["baseUrl"].as_str())
+            .unwrap_or("http://127.0.0.1:8080/v1")
+            .to_string();
         Api {
+            connection_path,
             mock: Arc::new(mock::MockBackend::new(data_dir)),
-            remote: Arc::new(remote::RemoteBackend::new()),
-            mode: RwLock::new(BackendMode::Mock),
-            base_url: RwLock::new(UserSettings::default().api_base_url),
+            remote: Arc::new(remote::RemoteBackend::with_url(url.clone())),
+            mode: RwLock::new(mode),
+            base_url: RwLock::new(url.clone()),
         }
     }
 
@@ -109,6 +145,18 @@ impl Api {
         *self.mode.write().await = mode;
         *self.base_url.write().await = base_url.to_string();
         self.remote.set_base_url(base_url).await;
+        if let Some(parent) = self.connection_path.parent() {
+            let _ = tokio::fs::create_dir_all(parent).await;
+        }
+        let value = serde_json::json!({"mode":mode,"baseUrl":base_url});
+        if let Err(e) = tokio::fs::write(&self.connection_path, value.to_string()).await {
+            eprintln!("Could not save connection: {e}");
+        }
+    }
+    pub async fn connection_settings(&self, mut settings: UserSettings) -> UserSettings {
+        settings.backend_mode = *self.mode.read().await;
+        settings.api_base_url = self.base_url.read().await.clone();
+        settings
     }
 
     pub async fn mode(&self) -> BackendMode {
