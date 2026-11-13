@@ -903,6 +903,8 @@ Rust 权威定义在 `src-tauri/src/models.rs`，TypeScript 镜像在 `src/types
 
 算法仓目录（`Project.kind = "algorithm"`）新建会话前填写算法仓名称、多张卡片与功能、仓类型（视频仓/图片仓）和支持平台（T4/Atlas/MC50/MC40/BW10）。所选平台共用填写的卡片列表。提交时生成中文需求，作为新会话首条 `SendMessageRequest.content` 发送，沿用现有会话及消息接口。
 
-模型支持多选本地文件和多条 HTTP/HTTPS 下载链接，两者可以同时提供，也可留空。客户端原生命令 `pick_model_files` 返回 `{ name, path, size }[]`；`import_model_files({ token, projectId, paths })` 校验项目归属和算法仓类型，将文件流式复制到用户本机项目目录的 `megvii-models/<批次>/<序号>/<原文件名>`，然后返回相同结构（`path` 为导入后的绝对路径）。模型不经过 WebView 读取，不作为 Base64 写进聊天，也不会上传到远程服务。失败批次会清理，不覆盖已有文件。
+模型支持多选本地文件和多条 HTTP/HTTPS 下载链接，两者可以同时提供，也可留空。`pick_model_files` 返回 `{ name, path, size }[]`。`import_model_files({ token, projectId, paths })` 校验项目归属和类型后按后端模式处理：本地模拟模式复制到本机工作目录；远程模式由原生 Rust 流式上传到真实后端，返回服务器的 Linux 绝对路径。文件不经过 WebView 读取，不作为 Base64 写进聊天。
 
-需求文本列出导入后的模型路径与下载链接。远程服务若负责调用本地编码代理，需要让代理访问该项目工作目录；服务端本身不会因收到路径而获得本地文件。远程项目接口必须保存并返回 `kind` 字段，才能跨端保留算法仓目录类型。
+远程上传接口：`POST /v1/projects/{projectId}/models?filename=<URL编码的文件名>`，Bearer 鉴权，`Content-Type: application/octet-stream`，请求体为文件字节。响应 `201`：`{ id, projectId, name, path, size, createdAt }`。单文件大于 0 且不超过 8 GiB。返回 `400`（非法文件名、空文件、普通目录）、`401`（未认证）、`404`（项目不存在或越权）、`413`（超限）。文件存放于后端实际工作区下的 `megvii-models/<用户>/<项目>/<上传>/<原文件名>`，不会使用客户端 Windows 项目路径作为写入位置。
+
+`DELETE /v1/projects/{projectId}/models/{modelId}` 返回 `204`，用于撤销本批次中已经上传成功的文件；如果后续文件失败，桌面原生层会尽力撤销此前文件并保留需求表单，不创建会话。删除项目也会清理相应文件。需求只在上传成功后引用服务器实际路径；不支持上传的旧后端会显示错误，不会悄悄退回发送 Windows 路径。模型下载链接仍放入需求，是否访问由后端执行与审批策略决定。

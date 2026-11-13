@@ -22,3 +22,9 @@ test("models are optional and duplicate links are omitted", () => {
   assert.match(buildAlgorithmPrompt(value, []), /未提供模型文件或下载链接/);
   assert.deepEqual(modelLinks(" https://example.com/a\r\nhttps://example.com/a\n\nhttps://example.com/b "), ["https://example.com/a", "https://example.com/b"]);
 });
+
+test("remote model paths from upload results replace Windows selections in the message", () => {
+  const prompt = buildAlgorithmPrompt(spec(), [{ name: "face_age.rar", path: "/workspace/algorithm/megvii-models/user/project/upload/face_age.rar", size: 123 }]);
+  assert.ok(prompt.includes("/workspace/algorithm/megvii-models/user/project/upload/face_age.rar"));
+  assert.ok(!prompt.includes("D:"));
+});

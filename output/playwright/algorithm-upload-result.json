@@ -1,0 +1,23 @@
+{
+  "passed": true,
+  "checks": [
+    "ordinary directory chat",
+    "algorithm project creation",
+    "required validation",
+    "multiple cards",
+    "repository and platform multiselect",
+    "multiple model files",
+    "model import failure and retry",
+    "prompt preview",
+    "new session and first message",
+    "cancel preserves previous draft",
+    "Ctrl+N entry",
+    "compact layout"
+  ],
+  "sent": {
+    "id": "s2",
+    "content": "请在当前目录下创建一个名为「行人分析」的算法仓。\n仓类型：视频仓、图片仓。\n这个算法仓需要支持以下平台：T4、Atlas、MC40。\nT4 平台下包含以下算法卡片：「行人检测」、「人员计数」。\nAtlas 平台下包含以下算法卡片：「行人检测」、「人员计数」。\nMC40 平台下包含以下算法卡片：「行人检测」、「人员计数」。\n算法卡片功能：\n- 名为「行人检测」的算法卡片的工作功能是：检测视频中的行人并输出位置和置信度\n- 名为「人员计数」的算法卡片的工作功能是：统计出入口人员数量\n这个算法仓依赖的模型：\n- 模型文件「detector.onnx」，文件路径：/workspace/algorithm/megvii-models/batch/0/detector.onnx\n- 模型文件「classifier.om」，文件路径：/workspace/algorithm/megvii-models/batch/1/classifier.om\n- 模型下载链接：https://example.com/extra.onnx",
+    "skills": []
+  },
+  "runtimeErrors": []
+}

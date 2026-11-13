@@ -5,12 +5,14 @@
 
 use std::sync::atomic::Ordering;
 
+use crate::model_files::ModelFile;
 use async_trait::async_trait;
 use futures_util::StreamExt;
 use reqwest::StatusCode;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
+use tokio::io::AsyncReadExt;
 use tokio::sync::{RwLock, mpsc};
 
 use crate::api::{ApiClient, CancelFlag};
@@ -20,6 +22,13 @@ use crate::models::*;
 pub struct RemoteBackend {
     http: reqwest::Client,
     base_url: RwLock<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct UploadedModel {
+    id: String,
+    #[serde(flatten)]
+    file: ModelFile,
 }
 
 impl RemoteBackend {
@@ -32,6 +41,105 @@ impl RemoteBackend {
             http,
             base_url: RwLock::new(url),
         }
+    }
+
+    /// Stream file bytes from native Rust into the remote coding workspace.
+    pub async fn upload_model_files(
+        &self,
+        token: &str,
+        project: &str,
+        paths: Vec<String>,
+    ) -> Result<Vec<ModelFile>, AppError> {
+        let mut uploaded: Vec<UploadedModel> = Vec::new();
+        for path in paths {
+            match self.upload_model(token, project, &path).await {
+                Ok(model) => uploaded.push(model),
+                Err(error) => {
+                    // Roll back this batch's completed uploads if a later file fails.
+                    for model in &uploaded {
+                        let _ = self
+                            .send_empty::<Value>(
+                                reqwest::Method::DELETE,
+                                &format!("/projects/{project}/models/{}", model.id),
+                                token,
+                                None,
+                            )
+                            .await;
+                    }
+                    return Err(error);
+                }
+            }
+        }
+        Ok(uploaded.into_iter().map(|model| model.file).collect())
+    }
+    async fn upload_model(
+        &self,
+        token: &str,
+        project: &str,
+        path: &str,
+    ) -> Result<UploadedModel, AppError> {
+        let selected = crate::model_files::describe(std::path::Path::new(path))?;
+        if selected.size == 0 || selected.size > 8 * 1024 * 1024 * 1024 {
+            return Err(AppError::BadRequest(format!(
+                "模型「{}」必须大于 0 字节且不超过 8 GiB",
+                selected.name
+            )));
+        }
+        let file = tokio::fs::File::open(path).await?;
+        let stream = futures_util::stream::try_unfold(file, |mut file| async move {
+            let mut buffer = vec![0u8; 1024 * 1024];
+            let size = file.read(&mut buffer).await?;
+            if size == 0 {
+                return Ok::<_, std::io::Error>(None);
+            }
+            buffer.truncate(size);
+            Ok(Some((buffer, file)))
+        });
+        let mut url = reqwest::Url::parse(&self.url(&format!("/projects/{project}/models")).await)
+            .map_err(|error| AppError::BadRequest(format!("后端地址无效：{error}")))?;
+        url.query_pairs_mut()
+            .append_pair("filename", &selected.name);
+        let response = self
+            .http
+            .post(url)
+            .bearer_auth(token)
+            .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
+            .header(reqwest::header::CONTENT_LENGTH, selected.size)
+            .timeout(std::time::Duration::from_secs(3600))
+            .body(reqwest::Body::wrap_stream(stream))
+            .send()
+            .await
+            .map_err(|error| {
+                AppError::Network(format!("模型「{}」上传失败：{error}", selected.name))
+            })?;
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            if status == StatusCode::NOT_FOUND || status == StatusCode::METHOD_NOT_ALLOWED {
+                return Err(AppError::BadRequest(
+                    "远程后端尚未启用模型上传接口，请先更新后端；文件不会退回为本机路径".into(),
+                ));
+            }
+            return Err(map_http(status, &body));
+        }
+        let model: UploadedModel = response
+            .json()
+            .await
+            .map_err(|error| AppError::Internal(format!("无法解析模型上传结果：{error}")))?;
+        if model.file.size != selected.size || !model.file.path.starts_with('/') {
+            let _ = self
+                .send_empty::<Value>(
+                    reqwest::Method::DELETE,
+                    &format!("/projects/{project}/models/{}", model.id),
+                    token,
+                    None,
+                )
+                .await;
+            return Err(AppError::Internal(
+                "后端未返回完整模型文件的 Linux 路径".into(),
+            ));
+        }
+        Ok(model)
     }
 
     pub async fn set_base_url(&self, url: &str) {
@@ -124,7 +232,7 @@ fn map_http(status: StatusCode, body: &str) -> AppError {
         return match status.as_u16() {
             401 | 403 => AppError::Unauthorized,
             404 => AppError::NotFound(message),
-            400 | 422 => AppError::BadRequest(message),
+            400 | 413 | 422 => AppError::BadRequest(message),
             409 => AppError::Conflict(message),
             _ => AppError::Internal(message),
         };
@@ -132,7 +240,7 @@ fn map_http(status: StatusCode, body: &str) -> AppError {
     match status.as_u16() {
         401 | 403 => AppError::Unauthorized,
         404 => AppError::NotFound(body.to_string()),
-        400 | 422 => AppError::BadRequest(body.to_string()),
+        400 | 413 | 422 => AppError::BadRequest(body.to_string()),
         409 => AppError::Conflict(body.to_string()),
         _ => AppError::Internal(format!("HTTP {}: {body}", status.as_u16())),
     }
@@ -546,5 +654,129 @@ impl ApiClient for RemoteBackend {
     async fn get_stats(&self, token: &str) -> Result<UsageStats, AppError> {
         self.send::<Value, _>(reqwest::Method::GET, "/stats", token, None)
             .await
+    }
+}
+
+#[cfg(test)]
+mod model_upload_tests {
+    use super::*;
+    use tokio::io::AsyncWriteExt;
+    async fn read_request(
+        listener: &tokio::net::TcpListener,
+    ) -> (tokio::net::TcpStream, String, Vec<u8>) {
+        let (mut connection, _) = listener.accept().await.unwrap();
+        let mut data = Vec::new();
+        let end = loop {
+            let mut chunk = [0u8; 8192];
+            let n = connection.read(&mut chunk).await.unwrap();
+            assert!(n > 0);
+            data.extend_from_slice(&chunk[..n]);
+            if let Some(index) = data.windows(4).position(|p| p == b"\r\n\r\n") {
+                break index + 4;
+            }
+        };
+        let headers = String::from_utf8(data[..end].to_vec()).unwrap();
+        let length: usize = headers
+            .lines()
+            .find_map(|line| {
+                line.to_ascii_lowercase()
+                    .strip_prefix("content-length: ")
+                    .and_then(|s| s.parse().ok())
+            })
+            .unwrap_or(0);
+        while data.len() - end < length {
+            let mut chunk = [0u8; 8192];
+            let n = connection.read(&mut chunk).await.unwrap();
+            assert!(n > 0);
+            data.extend_from_slice(&chunk[..n]);
+        }
+        (connection, headers, data[end..].to_vec())
+    }
+    async fn reply(connection: &mut tokio::net::TcpStream, status: &str, body: &str) {
+        let response = format!(
+            "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nConnection: close\r\nContent-Length: {}\r\n\r\n{body}",
+            body.len()
+        );
+        connection.write_all(response.as_bytes()).await.unwrap();
+    }
+    #[tokio::test]
+    async fn native_upload_streams_bytes_and_returns_linux_path() {
+        let root = std::env::temp_dir().join(format!("megvii-upload-{}", new_id()));
+        std::fs::create_dir(&root).unwrap();
+        let path = root.join("face_age.rar");
+        let bytes = vec![0x72u8; 3 * 1024 * 1024 + 11];
+        std::fs::write(&path, &bytes).unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut connection, headers, body) = read_request(&listener).await;
+            assert!(headers.starts_with("POST /v1/projects/project/models?filename=face_age.rar "));
+            assert!(
+                headers
+                    .to_ascii_lowercase()
+                    .contains("authorization: bearer upload-test")
+            );
+            assert_eq!(body, bytes);
+            let result = json!({"id":"model-id","name":"face_age.rar","path":"/workspace/algorithm/megvii-models/model-id/face_age.rar","size":body.len()});
+            reply(&mut connection, "201 Created", &result.to_string()).await;
+        });
+        let backend = RemoteBackend::with_url(format!("http://{address}/v1"));
+        let models = backend
+            .upload_model_files(
+                "upload-test",
+                "project",
+                vec![path.to_string_lossy().into()],
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            models[0].path,
+            "/workspace/algorithm/megvii-models/model-id/face_age.rar"
+        );
+        server.await.unwrap();
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[tokio::test]
+    async fn native_batch_rolls_back_completed_uploads_after_failure() {
+        let root = std::env::temp_dir().join(format!("megvii-upload-{}", new_id()));
+        std::fs::create_dir(&root).unwrap();
+        let first = root.join("one.rar");
+        let second = root.join("two.rar");
+        std::fs::write(&first, b"one").unwrap();
+        std::fs::write(&second, b"two").unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut first, _, _) = read_request(&listener).await;
+            reply(&mut first,"201 Created",&json!({"id":"first","name":"one.rar","path":"/workspace/algorithm/megvii-models/first/one.rar","size":3}).to_string()).await;
+            drop(first);
+            let (mut second, _, _) = read_request(&listener).await;
+            reply(
+                &mut second,
+                "500 Internal Server Error",
+                r#"{"message":"upload failed"}"#,
+            )
+            .await;
+            drop(second);
+            let (mut rollback, headers, _) = read_request(&listener).await;
+            assert!(headers.starts_with("DELETE /v1/projects/project/models/first "));
+            reply(&mut rollback, "204 No Content", "").await;
+        });
+        let backend = RemoteBackend::with_url(format!("http://{address}/v1"));
+        assert!(
+            backend
+                .upload_model_files(
+                    "upload-test",
+                    "project",
+                    vec![
+                        first.to_string_lossy().into(),
+                        second.to_string_lossy().into()
+                    ]
+                )
+                .await
+                .is_err()
+        );
+        server.await.unwrap();
+        std::fs::remove_dir_all(root).unwrap();
     }
 }

@@ -1,9 +1,9 @@
 //! Import selected model files without loading large weights into the WebView.
 use crate::error::AppError;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ModelFile {
     pub name: String,

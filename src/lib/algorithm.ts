@@ -39,7 +39,7 @@ export function buildAlgorithmPrompt(spec: AlgorithmSpec, files: ModelFile[]): s
   const links = modelLinks(spec.modelLinks);
   if (files.length || links.length) {
     lines.push("这个算法仓依赖的模型：");
-    for (const file of files) lines.push(`- 本地模型「${file.name}」，文件路径：${file.path}`);
+    for (const file of files) lines.push(`- 模型文件「${file.name}」，文件路径：${file.path}`);
     for (const link of links) lines.push(`- 模型下载链接：${link}`);
   } else lines.push("模型依赖：未提供模型文件或下载链接，请先确认是否需要额外模型。");
   return lines.join("\n");

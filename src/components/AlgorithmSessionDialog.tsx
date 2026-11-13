@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { ALGORITHM_PLATFORMS, REPOSITORY_TYPES, buildAlgorithmPrompt, validateAlgorithm, type AlgorithmCard, type AlgorithmSpec, type ModelFile } from "@/lib/algorithm";
 import { useAuthStore } from "@/store/auth";
 import { useChatStore } from "@/store/chat";
+import { useSettingsStore } from "@/store/settings";
 import { useSkillsStore } from "@/store/skills";
 import { toast, useUiStore } from "@/store/ui";
 import { useWorkspaceStore } from "@/store/workspace";
@@ -22,6 +23,7 @@ export function AlgorithmSessionDialog() {
 
 function AlgorithmSessionForm({ project }: { project: Project }) {
   const close = useUiStore(s => s.closeAlgorithmDialog);
+  const remote = useSettingsStore(s => s.settings?.backendMode !== "mock");
   const busy = useUiStore(s => s.algorithmDialog.busy);
   const [spec, setSpec] = useState<AlgorithmSpec>(() => ({ name: "", cards: [newCard()], platforms: [], repositoryTypes: [], modelLinks: "" }));
   const [files, setFiles] = useState<ModelFile[]>([]);
@@ -56,9 +58,9 @@ function AlgorithmSessionForm({ project }: { project: Project }) {
     try {
       const pending = files.filter(f => !imports.current.has(f.path));
       if (pending.length) {
-        setStage("导入模型文件中…");
+        setStage(remote ? "上传模型文件中…" : "导入模型文件中…");
         const imported = await api.importModelFiles(token, project.id, pending.map(f => f.path));
-        if (imported.length !== pending.length) throw new Error("模型文件导入不完整，请重新选择文件");
+        if (imported.length !== pending.length) throw new Error("模型文件传输不完整，请重新选择文件");
         pending.forEach((file, i) => imports.current.set(file.path, imported[i]));
       }
       if (useAuthStore.getState().token !== token) return;
@@ -107,12 +109,12 @@ function AlgorithmSessionForm({ project }: { project: Project }) {
         </section>
         <section aria-labelledby="algorithm-models-title" className="space-y-3">
           <div className="flex items-center justify-between gap-3"><h3 id="algorithm-models-title" className="text-[13px] font-medium">模型文件与下载链接</h3><Button type="button" onClick={() => void pickFiles()}><Upload size={13} className="mr-1 inline" />添加模型文件</Button></div>
-          <p className="text-[12px] leading-5 text-faint">可选择多个模型文件，也可填写下载链接。提交时，文件将导入当前工作目录的 megvii-models 文件夹。</p>
+          <p className="text-[12px] leading-5 text-faint">{remote ? "可选择多个模型文件，也可填写下载链接。提交时会上传到后端 Linux 工作区，并使用服务器路径发送需求。" : "可选择多个模型文件，也可填写下载链接。提交时会导入本机工作目录的 megvii-models 文件夹。"}</p>
           {files.length > 0 && <ul className="space-y-2">{files.map(file => <li key={file.path} className="flex items-center gap-2 rounded-lg border border-line px-3 py-2 text-[12px]"><FileBox size={15} className="shrink-0 text-dim" /><span className="min-w-0 flex-1 truncate" title={file.path}>{file.name}</span><span className="shrink-0 text-faint">{formatSize(file.size)}</span><button type="button" aria-label={`移除模型 ${file.name}`} onClick={() => setFiles(items => items.filter(f => f.path !== file.path))} className="desktop-icon"><X size={13} /></button></li>)}</ul>}
           <label className="algorithm-field"><span>模型下载链接（可选，每行一条）</span><textarea value={spec.modelLinks} onChange={e => change({ modelLinks: e.target.value })} placeholder={"https://example.com/detector.onnx\nhttps://example.com/classifier.bin"} rows={3} spellCheck={false} /></label>
         </section>
       </fieldset>
-      <details className="algorithm-preview"><summary>查看将发送给模型的需求文本</summary><pre>{preview}</pre>{files.length > 0 && <p>提交后，本地文件路径将替换为导入后的实际路径。</p>}</details>
+      <details className="algorithm-preview"><summary>查看将发送给模型的需求文本</summary><pre>{preview}</pre>{files.length > 0 && <p>{remote ? "当前显示的是待上传文件；提交后会替换为服务器 Linux 路径。" : "提交后会替换为导入后的本机路径。"}</p>}</details>
       {error && <p role="alert" className="rounded-lg border border-err/30 bg-err/10 p-3 text-[12px] text-err">{error}</p>}
     </form>
   </Modal>;

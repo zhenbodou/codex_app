@@ -404,7 +404,7 @@ pub async fn pick_model_files(app: AppHandle) -> AppResult<Vec<crate::model_file
         .collect()
 }
 
-/// Copy models into the authenticated project's local workspace on a blocking worker.
+/// Upload models in remote mode, or copy locally in mock mode.
 #[tauri::command]
 pub async fn import_model_files(
     state: tauri::State<'_, AppState>,
@@ -413,9 +413,22 @@ pub async fn import_model_files(
     paths: Vec<String>,
 ) -> AppResult<Vec<crate::model_files::ModelFile>> {
     let state = state.inner().clone();
-    let project = client!(state).get_project(&token, &project_id).await?;
+    let mode = state.api.mode().await;
+    let client: std::sync::Arc<dyn crate::api::ApiClient> = match mode {
+        BackendMode::Remote => state.api.remote.clone(),
+        BackendMode::Mock => state.api.mock.clone(),
+    };
+    let project = client.get_project(&token, &project_id).await?;
     if project.kind != ProjectKind::Algorithm {
         return Err(AppError::BadRequest("只有算法仓目录可以导入模型".into()).into());
+    }
+    if mode == BackendMode::Remote {
+        return state
+            .api
+            .remote
+            .upload_model_files(&token, &project_id, paths)
+            .await
+            .map_err(Into::into);
     }
     tokio::task::spawn_blocking(move || {
         crate::model_files::import(std::path::Path::new(&project.path), paths)
