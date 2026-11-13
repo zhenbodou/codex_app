@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Claude Code</title>
+    <title>Megvii Code</title>
     <style>
       /* 首屏占位：避免 Rust 窗口出现后前端还没挂载时的白闪 */
       html,
@@ -23,7 +23,7 @@
         font: 500 13px ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
         letter-spacing: 0.06em;
       }
-      #boot span {
+      #boot img {
         animation: bootpulse 1.4s ease-in-out infinite;
       }
       @keyframes bootpulse {
@@ -39,7 +39,7 @@
   </head>
   <body>
     <div id="root"></div>
-    <div id="boot"><span>Claude</span></div>
+    <div id="boot"><img src="/favicon.svg" width="60" height="60" alt="Megvii Code" /></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

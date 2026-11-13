@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Code2, Keyboard, PanelLeft, Plus, Search, SlidersHorizontal, Folder, ChevronRight, MoreHorizontal, Settings, Sparkles, LogOut, Check, Circle, Loader2, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { ClaudeMark } from "@/components/ClaudeMark";
 import { initials, relativeTime } from "@/lib/format";
 import { useAuthStore } from "@/store/auth";
 import { useWorkspaceStore } from "@/store/workspace";
@@ -34,7 +35,7 @@ export function Sidebar() {
   return <motion.aside initial={false} animate={{ width: collapsed ? 0 : 280, opacity: collapsed ? 0 : 1 }} transition={desktopTransition} className="desktop-sidebar" inert={collapsed}>
     <div className="sidebar-content">
       <div className="flex h-14 items-center px-4">
-        <span className="claude-wordmark">Claude</span>
+        <ClaudeMark className="h-8 w-8" />
         <button type="button" onClick={toggle} className="desktop-icon ml-auto" title="收起侧边栏" aria-label="收起侧边栏"><PanelLeft size={17} /></button>
       </div>
       <div className="mx-3 mb-3 flex items-center gap-2 rounded-lg bg-surface-2 px-3 py-2 text-[13px] font-medium"><Code2 size={16} />Code<span className="ml-auto text-[10px] font-normal text-faint">桌面工作区</span></div>

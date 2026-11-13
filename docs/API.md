@@ -1,6 +1,6 @@
 # 后端接口文档
 
-Claude Code Desktop（Tauri + React）所需的后端服务约定。
+Megvii Code Desktop（Tauri + React）所需的后端服务约定。
 
 桌面端通过 Rust 侧的 `ApiClient` 抽象访问后端，有两个实现：
 

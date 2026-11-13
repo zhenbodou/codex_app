@@ -92,7 +92,7 @@ export function Composer() {
         </motion.div>}</AnimatePresence>
         <div className="desktop-composer">
           {selected.length > 0 && <div className="flex flex-wrap gap-1.5 px-4 pt-3">{skills.filter(s => selected.includes(s.id)).map(s => <span key={s.id} className="inline-flex items-center gap-1.5 rounded-md border bg-surface-2 px-2 py-1 text-[11px] text-dim"><SkillIcon name={s.icon} size={12} />{s.name}<button type="button" onClick={() => toggleSelected(s.id)} aria-label={"移除技能 " + s.name}><X size={12} /></button></span>)}</div>}
-          <textarea ref={ta} value={value} onChange={e => setValue(e.target.value)} onKeyDown={keyDown} rows={3} spellCheck={false} aria-label="给 Claude 的任务" placeholder="你想要完成什么？" data-selectable className="composer-textarea" />
+          <textarea ref={ta} value={value} onChange={e => setValue(e.target.value)} onKeyDown={keyDown} rows={3} spellCheck={false} aria-label="给 Megvii Code 的任务" placeholder="你想要完成什么？" data-selectable className="composer-textarea" />
           <div className="composer-toolbar">
             <button type="button" className="desktop-icon" onClick={() => setSkillsOpen(true)} aria-label="添加技能" title="添加技能"><Plus size={18} /></button>
             <div ref={menu === "folder" ? popup : undefined} className="relative min-w-0">
@@ -108,7 +108,7 @@ export function Composer() {
           </div>
         </div>
       </div>
-      <div className="composer-footer"><span className="inline-flex items-center gap-1.5"><Monitor size={12} />本地</span><span className="ml-auto">Claude 可能会出错，请检查重要信息。</span></div>
+      <div className="composer-footer"><span className="inline-flex items-center gap-1.5"><Monitor size={12} />本地</span><span className="ml-auto">Megvii Code 可能会出错，请检查重要信息。</span></div>
     </div>
   </div>;
 }

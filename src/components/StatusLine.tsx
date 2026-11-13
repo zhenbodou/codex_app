@@ -14,7 +14,7 @@ export function StatusLine({ className }: { tokens: number; className?: string }
     return () => window.clearInterval(timer);
   }, []);
   return <div role="status" className={cn("flex items-center gap-2 px-1 pb-3 text-[12px] text-dim", className)}>
-    <StarSpinner /><span>{tool?.type === "tool_use" ? "正在运行 " + tool.name + "…" : "Claude 正在处理…"}</span>
+    <StarSpinner /><span>{tool?.type === "tool_use" ? "正在运行 " + tool.name + "…" : "Megvii Code 正在处理…"}</span>
     <span aria-hidden="true" className="text-faint">{elapsed}s</span>
     <span className="ml-auto text-[10px] text-faint">Esc 停止</span>
   </div>;

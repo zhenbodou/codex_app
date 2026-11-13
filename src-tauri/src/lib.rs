@@ -23,6 +23,8 @@ pub fn run() {
             // 配置里的初始尺寸可能比小屏幕的工作区还大，那样窗口会被摆到屏外。
             // 启动时按当前显示器收一次尺寸并居中，保证开箱可见。
             if let Some(win) = app.get_webview_window("main") {
+                // Explicitly apply the embedded brand icon to the native title bar and taskbar.
+                win.set_icon(tauri::include_image!("icons/128x128.png"))?;
                 if let Ok(Some(monitor)) = win.current_monitor() {
                     let area = monitor.work_area().size;
                     if let Ok(outer) = win.outer_size() {

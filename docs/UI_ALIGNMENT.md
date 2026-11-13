@@ -1,4 +1,4 @@
-# Claude Code desktop UI alignment
+# Megvii Code desktop UI alignment
 
 Reference checked on 2026-10-23:
 

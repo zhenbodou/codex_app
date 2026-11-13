@@ -3,7 +3,6 @@ import { ArrowRight, Loader2, Eye, EyeOff, Moon, Sun } from "lucide-react";
 import { useAuthStore } from "@/store/auth";
 import { ClaudeMark } from "@/components/ClaudeMark";
 
-const DEMO = { email: "demo@claude.dev", password: "demo1234" };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function Login() {
@@ -46,7 +45,7 @@ export function Login() {
       {theme === "light" ? <Moon size={17} /> : <Sun size={17} />}<span>{theme === "light" ? "深色" : "浅色"}</span>
     </button>
     <div className="login-content">
-      <div className="login-brand"><ClaudeMark className="h-12 w-12" /><h1>Claude Code</h1><p>与你一起构建的编程伙伴</p></div>
+      <div className="login-brand"><ClaudeMark className="h-12 w-12" /><h1>Megvii Code</h1><p>与你一起构建的编程伙伴</p></div>
       <section className="login-card" aria-label={mode === "login" ? "登录账户" : "注册账户"}>
         <div className="login-tabs" role="tablist" aria-label="账户操作">
           {(["login", "register"] as const).map(m => <button key={m} type="button" id={"auth-tab-" + m} role="tab" aria-selected={mode === m} aria-controls="auth-panel" tabIndex={mode === m ? 0 : -1} disabled={busy} onClick={() => setMode(m)} onKeyDown={e => {
@@ -67,10 +66,7 @@ export function Login() {
             <button type="submit" className="login-submit">{busy ? <><Loader2 size={16} className="animate-spin" />{mode === "login" ? "登录中…" : "注册中…"}</> : <>{mode === "login" ? "登录" : "创建账户"}<ArrowRight size={16} /></>}</button>
           </fieldset>
         </form>
-        <div className="login-divider"><span />或<span /></div>
-        <button type="button" disabled={busy} className="login-demo" onClick={() => { setMode("login"); setEmail(DEMO.email); setPassword(DEMO.password); clearError(); setTouched(false); }}>填入演示账号</button>
       </section>
-      <p className="login-footnote">演示账号：{DEMO.email}<br />密码：{DEMO.password}</p>
     </div>
   </main>;
 }
