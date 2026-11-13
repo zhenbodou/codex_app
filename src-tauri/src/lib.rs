@@ -1,6 +1,7 @@
 mod api;
 mod commands;
 mod error;
+mod model_files;
 mod models;
 mod state;
 
@@ -75,7 +76,9 @@ pub fn run() {
             commands::list_models,
             commands::get_stats,
             // 本地能力
-            commands::pick_directory
+            commands::pick_directory,
+            commands::pick_model_files,
+            commands::import_model_files
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

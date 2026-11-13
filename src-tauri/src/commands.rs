@@ -379,3 +379,48 @@ pub async fn pick_directory(app: AppHandle) -> AppResult<Option<String>> {
     rx.await
         .map_err(|e| ErrorDto::from(AppError::Internal(format!("对话框已关闭: {e}"))))
 }
+
+/// Select multiple model weights using native paths, without transferring file bytes over IPC.
+#[tauri::command]
+pub async fn pick_model_files(app: AppHandle) -> AppResult<Vec<crate::model_files::ModelFile>> {
+    use tauri_plugin_dialog::DialogExt;
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog()
+        .file()
+        .set_title("选择模型文件（可多选）")
+        .pick_files(move |picked| {
+            let _ = tx.send(picked);
+        });
+    let paths = rx
+        .await
+        .map_err(|e| AppError::Internal(format!("文件选择失败: {e}")))?;
+    paths
+        .unwrap_or_default()
+        .into_iter()
+        .map(|path| {
+            crate::model_files::describe(std::path::Path::new(&path.to_string()))
+                .map_err(Into::into)
+        })
+        .collect()
+}
+
+/// Copy models into the authenticated project's local workspace on a blocking worker.
+#[tauri::command]
+pub async fn import_model_files(
+    state: tauri::State<'_, AppState>,
+    token: String,
+    project_id: String,
+    paths: Vec<String>,
+) -> AppResult<Vec<crate::model_files::ModelFile>> {
+    let state = state.inner().clone();
+    let project = client!(state).get_project(&token, &project_id).await?;
+    if project.kind != ProjectKind::Algorithm {
+        return Err(AppError::BadRequest("只有算法仓目录可以导入模型".into()).into());
+    }
+    tokio::task::spawn_blocking(move || {
+        crate::model_files::import(std::path::Path::new(&project.path), paths)
+    })
+    .await
+    .map_err(|e| AppError::Internal(format!("导入模型失败: {e}")))?
+    .map_err(Into::into)
+}

@@ -39,7 +39,7 @@ export function Sidebar() {
         <button type="button" onClick={toggle} className="desktop-icon ml-auto" title="收起侧边栏" aria-label="收起侧边栏"><PanelLeft size={17} /></button>
       </div>
       <div className="mx-3 mb-3 flex items-center gap-2 rounded-lg bg-surface-2 px-3 py-2 text-[13px] font-medium"><Code2 size={16} />Code<span className="ml-auto text-[10px] font-normal text-faint">桌面工作区</span></div>
-      <button type="button" className="sidebar-new" onClick={() => { useWorkspaceStore.getState().startNewSession(); useUiStore.getState().setComposerDraft(""); }}><Plus size={16} />新建会话<span className="ml-auto text-[11px] text-faint">Ctrl+N</span></button>
+      <button type="button" className="sidebar-new" onClick={() => { useWorkspaceStore.getState().startNewSession(); }}><Plus size={16} />新建会话<span className="ml-auto text-[11px] text-faint">Ctrl+N</span></button>
       <div className="mx-3 mt-4 flex items-center gap-2">
         <div className="sidebar-search"><Search size={14} /><input aria-label="搜索会话" value={query} onChange={e => setQuery(e.target.value)} placeholder="搜索会话" /></div>
         <button type="button" className={cn("desktop-icon", filters && "bg-surface-2")} onClick={() => setFilters(!filters)} title="筛选会话" aria-label="筛选会话" aria-expanded={filters}><SlidersHorizontal size={15} /></button>
@@ -52,9 +52,9 @@ export function Sidebar() {
         {projects.length > 0 && !visible.length && <p className="p-5 text-center text-[12px] text-faint">没有匹配的会话</p>}
         {visible.map(({ project, sessions }) => <section key={project.id} className="mb-3">
           <div className="group flex items-center gap-1 px-2 py-1">
-            <button type="button" aria-label={hidden.includes(project.id) ? "展开项目 " + project.name : "折叠项目 " + project.name} aria-expanded={!hidden.includes(project.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left text-[12px] text-dim" onClick={() => setHidden(h => h.includes(project.id) ? h.filter(id => id !== project.id) : [...h, project.id])}><ChevronRight size={11} className={cn("shrink-0 transition-transform", !hidden.includes(project.id) && "rotate-90")} /><Folder size={13} className="shrink-0" /><span className="truncate">{project.name}</span></button>
+            <button type="button" aria-label={hidden.includes(project.id) ? "展开项目 " + project.name : "折叠项目 " + project.name} aria-expanded={!hidden.includes(project.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left text-[12px] text-dim" onClick={() => setHidden(h => h.includes(project.id) ? h.filter(id => id !== project.id) : [...h, project.id])}><ChevronRight size={11} className={cn("shrink-0 transition-transform", !hidden.includes(project.id) && "rotate-90")} /><Folder size={13} className="shrink-0" /><span className="truncate">{project.name}</span>{project.kind === "algorithm" && <span className="shrink-0 rounded bg-accent/10 px-1 text-[9px] text-accent">算法仓</span>}</button>
             <button type="button" className="desktop-icon h-6! w-6!" aria-label={"编辑项目 " + project.name} title="编辑项目" onClick={() => useUiStore.getState().openProjectDialog(project.id)}><MoreHorizontal size={14} /></button>
-            <button type="button" className="desktop-icon h-6! w-6!" aria-label={"在 " + project.name + " 新建会话"} title="新建会话" onClick={() => { useWorkspaceStore.getState().startNewSession(project.id); useUiStore.getState().setComposerDraft(""); }}><Plus size={14} /></button>
+            <button type="button" className="desktop-icon h-6! w-6!" aria-label={"在 " + project.name + " 新建会话"} title="新建会话" onClick={() => { useWorkspaceStore.getState().startNewSession(project.id); }}><Plus size={14} /></button>
           </div>
           {!hidden.includes(project.id) && <div className="mt-1 space-y-0.5">
             {sessions.map(s => <SessionRow key={s.id} session={s} active={s.id === activeId} />)}

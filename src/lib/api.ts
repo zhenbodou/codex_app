@@ -1,3 +1,4 @@
+import type { ModelFile } from "@/lib/algorithm";
 import { invoke } from "@tauri-apps/api/core";
 import type {
   ApiErrorPayload,
@@ -152,6 +153,10 @@ export const api = {
     call<void>("set_backend_mode", { mode, baseUrl }),
   listModels: (token: string) => call<ModelInfo[]>("list_models", { token }),
   getStats: (token: string) => call<UsageStats>("get_stats", { token }),
+
+  pickModelFiles: () => call<ModelFile[]>("pick_model_files", undefined, Number.POSITIVE_INFINITY),
+  importModelFiles: (token: string, projectId: string, paths: string[]) =>
+    call<ModelFile[]>("import_model_files", { token, projectId, paths }, Number.POSITIVE_INFINITY),
 
   // ── 本地能力 ──
   /** 打开系统文件夹选择器；用户取消时返回 null。 */

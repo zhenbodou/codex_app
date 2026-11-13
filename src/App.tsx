@@ -35,7 +35,7 @@ export default function App() {
     useWorkspaceStore.getState().reset();
     useSettingsStore.getState().reset();
     useSkillsStore.getState().reset();
-    useUiStore.setState({ composerDraft: "", draftKey: null, drafts: {}, toasts: [], settingsOpen: false, skillsOpen: false, commandPaletteOpen: false, shortcutsOpen: false, projectDialog: { open: false, editingId: null } });
+    useUiStore.setState({ composerDraft: "", draftKey: null, drafts: {}, toasts: [], settingsOpen: false, skillsOpen: false, commandPaletteOpen: false, shortcutsOpen: false, projectDialog: { open: false, editingId: null }, algorithmDialog: { projectId: null, busy: false } });
   }, [user, restoring]);
 
   if (restoring) return <BootSplash />;

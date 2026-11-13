@@ -59,6 +59,10 @@ export function Composer() {
     if (!text || streaming || loading || sending.current) return;
     const ws = useWorkspaceStore.getState();
     if (!ws.activeProjectId) { openProjectDialog(null); return; }
+    if (!ws.activeSessionId && project?.kind === "algorithm") {
+      ws.startNewSession(ws.activeProjectId);
+      return;
+    }
     sending.current = true;
     setCreating(true);
     try {

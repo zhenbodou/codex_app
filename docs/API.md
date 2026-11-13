@@ -210,6 +210,7 @@ GET /sessions?projectId=xxx&limit=50&cursor=<opaque>
 ```json
 {
   "id": "proj_01",
+  "kind": "normal",
   "name": "claude-code-desktop",
   "path": "D:\\code\\tauri\\claude-code-desktop",
   "description": "Tauri + React 实现的桌面版 AI 编码助手",
@@ -222,6 +223,7 @@ GET /sessions?projectId=xxx&limit=50&cursor=<opaque>
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
+| `kind` | `normal` \| `algorithm` | 目录类型，省略时默认为 `normal`；需持久化并在项目列表、详情及创建/更新响应中返回 |
 | `path` | string | 本地目录绝对路径。**服务端只做存储，不需要能访问它** —— 文件操作发生在用户机器上 |
 | `description` | string \| null | 可选 |
 | `color` | string | 侧边栏标记色，`#RRGGBB`。客户端调色板：`#D97757` `#6C9BCF` `#7FB069` `#C792EA` `#E0A458` `#56B6C2`，但应当接受任意合法值 |
@@ -238,11 +240,14 @@ GET /sessions?projectId=xxx&limit=50&cursor=<opaque>
 ```json
 {
   "name": "my-app",
+  "kind": "algorithm",
   "path": "D:\\code\\my-app",
   "description": "可选",
   "color": "#6C9BCF"
 }
 ```
+
+`kind` 可省略，默认 `normal`。算法仓目录使用 `algorithm`；旧数据应迁移为 `normal`。
 
 `description` 与 `color` 可省略，`color` 省略时服务端应挑一个默认值。
 
@@ -892,3 +897,12 @@ SSE 事件到达 Rust 后，会通过 Tauri 的 `llm-stream` 事件转发给前�
 ## 附录 B：类型定义速查
 
 Rust 权威定义在 `src-tauri/src/models.rs`，TypeScript 镜像在 `src/types.ts`。两边必须同步修改。
+
+
+## 算法仓会话与模型文件
+
+算法仓目录（`Project.kind = "algorithm"`）新建会话前填写算法仓名称、多张卡片与功能、仓类型（视频仓/图片仓）和支持平台（T4/Atlas/MC50/MC40/BW10）。所选平台共用填写的卡片列表。提交时生成中文需求，作为新会话首条 `SendMessageRequest.content` 发送，沿用现有会话及消息接口。
+
+模型支持多选本地文件和多条 HTTP/HTTPS 下载链接，两者可以同时提供，也可留空。客户端原生命令 `pick_model_files` 返回 `{ name, path, size }[]`；`import_model_files({ token, projectId, paths })` 校验项目归属和算法仓类型，将文件流式复制到用户本机项目目录的 `megvii-models/<批次>/<序号>/<原文件名>`，然后返回相同结构（`path` 为导入后的绝对路径）。模型不经过 WebView 读取，不作为 Base64 写进聊天，也不会上传到远程服务。失败批次会清理，不覆盖已有文件。
+
+需求文本列出导入后的模型路径与下载链接。远程服务若负责调用本地编码代理，需要让代理访问该项目工作目录；服务端本身不会因收到路径而获得本地文件。远程项目接口必须保存并返回 `kind` 字段，才能跨端保留算法仓目录类型。

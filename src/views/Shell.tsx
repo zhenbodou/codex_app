@@ -5,6 +5,7 @@ import { KeyboardShortcuts } from "@/components/KeyboardShortcuts";
 import { ChatHeader } from "@/components/ChatHeader";
 import { MessageList } from "@/components/MessageList";
 import { Composer } from "@/components/Composer";
+import { AlgorithmSessionDialog } from "@/components/AlgorithmSessionDialog";
 import { ProjectDialog } from "@/components/ProjectDialog";
 import { SkillsPanel } from "@/components/SkillsPanel";
 import { Settings } from "@/components/Settings";
@@ -60,7 +61,8 @@ export function Shell() {
         ui.shortcutsOpen ||
         ui.settingsOpen ||
         ui.skillsOpen ||
-        ui.projectDialog.open;
+        ui.projectDialog.open ||
+        !!ui.algorithmDialog.projectId;
 
       if (e.key === "Escape") {
         if (!ui.closeTopmost()) void useChatStore.getState().stop();
@@ -114,7 +116,6 @@ export function Shell() {
         case "n": {
           e.preventDefault();
           useWorkspaceStore.getState().startNewSession();
-          ui.setComposerDraft("");
           break;
         }
       }
@@ -135,6 +136,7 @@ export function Shell() {
 
       {/* 浮层 */}
       <ProjectDialog />
+      <AlgorithmSessionDialog />
       <SkillsPanel />
       <Settings />
       <CommandPalette />

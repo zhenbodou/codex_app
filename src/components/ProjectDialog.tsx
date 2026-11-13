@@ -6,7 +6,7 @@ import { api, ApiError } from "@/lib/api";
 import { toast, useUiStore } from "@/store/ui";
 import { useWorkspaceStore } from "@/store/workspace";
 import { Button, Modal } from "@/components/Modal";
-import { PROJECT_COLORS } from "@/types";
+import { PROJECT_COLORS, type ProjectKind } from "@/types";
 
 /**
  * 新建 / 编辑项目弹窗。
@@ -26,6 +26,7 @@ export function ProjectDialog() {
 
   const editing = editingId ? projects.find((p) => p.id === editingId) : null;
 
+  const [kind, setKind] = useState<ProjectKind>("normal");
   const [name, setName] = useState("");
   const [path, setPath] = useState("");
   const [description, setDescription] = useState("");
@@ -35,6 +36,7 @@ export function ProjectDialog() {
 
   useEffect(() => {
     if (!open) return;
+    setKind(editing?.kind ?? "normal");
     setName(editing?.name ?? "");
     setPath(editing?.path ?? "");
     setDescription(editing?.description ?? "");
@@ -69,6 +71,7 @@ export function ProjectDialog() {
     try {
       if (editing) {
         await updateProject(editing.id, {
+          kind,
           name: name.trim(),
           path: path.trim(),
           description: description.trim() || null,
@@ -76,6 +79,7 @@ export function ProjectDialog() {
         });
       } else {
         await createProject({
+          kind,
           name: name.trim(),
           path: path.trim(),
           description: description.trim() || undefined,
@@ -137,6 +141,17 @@ export function ProjectDialog() {
           void submit();
         }}
       >
+        <fieldset className="space-y-2">
+          <legend className="text-[12px] text-dim">目录类型</legend>
+          <div className="grid grid-cols-2 gap-3">
+            {([['normal', '普通目录', '直接创建会话，与模型聊天'], ['algorithm', '算法仓目录', '新建会话时填写算法仓需求']] as const).map(([value, title, hint]) => (
+              <label key={value} className={cn("flex cursor-pointer items-start gap-2 rounded-lg border p-3", kind === value ? "border-accent bg-accent/10" : "border-line")}>
+                <input type="radio" name="project-kind" value={value} checked={kind === value} onChange={() => setKind(value)} className="mt-1 accent-accent" />
+                <span><span className="block text-[13px]">{title}</span><span className="mt-1 block text-[11px] text-faint">{hint}</span></span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
         <Field label="项目名称" error={nameError}>
           <input
             autoFocus

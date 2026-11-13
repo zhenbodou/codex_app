@@ -78,7 +78,6 @@ export function CommandPalette() {
         icon: <Sparkles size={13} />,
         run: () => {
           ws.startNewSession();
-          ui.setComposerDraft("");
         },
       },
       {

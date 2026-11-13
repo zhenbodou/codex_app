@@ -201,6 +201,7 @@ fn seed_if_needed(db: &mut Db, user_id: &str) {
     }
 
     let p1 = Project {
+        kind: ProjectKind::Normal,
         id: new_id(),
         name: "claude-code-desktop".into(),
         path: "D:\\code\\tauri\\claude-code-desktop".into(),
@@ -211,6 +212,7 @@ fn seed_if_needed(db: &mut Db, user_id: &str) {
         session_count: 0,
     };
     let p2 = Project {
+        kind: ProjectKind::Normal,
         id: new_id(),
         name: "tauri-bible".into(),
         path: "D:\\code\\tauri\\tauri-bible".into(),
@@ -519,6 +521,7 @@ impl ApiClient for MockBackend {
         });
 
         let project = Project {
+            kind: req.kind,
             id: new_id(),
             name: name.into(),
             path: req.path.trim().into(),
@@ -574,6 +577,9 @@ impl ApiClient for MockBackend {
             } else {
                 Some(desc)
             };
+        }
+        if let Some(kind) = req.kind {
+            row.data.kind = kind;
         }
         if let Some(color) = req.color {
             row.data.color = color;
@@ -1049,6 +1055,7 @@ mod tests {
             .create_project(
                 &auth.token,
                 CreateProjectRequest {
+                    kind: ProjectKind::Normal,
                     name: "test-project".into(),
                     path: "/tmp/test-project".into(),
                     description: None,
@@ -1071,6 +1078,27 @@ mod tests {
             .unwrap();
 
         (auth.token, project.id, session.id)
+    }
+
+    #[tokio::test]
+    async fn algorithm_project_kind_is_created_updated_and_persisted() {
+        let b = backend();
+        let (token, normal_id, _) = scaffold(&b).await;
+        assert_eq!(b.get_project(&token, &normal_id).await.unwrap().kind, ProjectKind::Normal);
+        let project = b.create_project(&token, CreateProjectRequest {
+            kind: ProjectKind::Algorithm, name: "algorithm-workspace".into(),
+            path: "D:/algorithms".into(), description: None, color: None,
+        }).await.unwrap();
+        assert_eq!(project.kind, ProjectKind::Algorithm);
+        b.update_project(&token, &normal_id, UpdateProjectRequest {
+            kind: Some(ProjectKind::Algorithm), ..Default::default()
+        }).await.unwrap();
+        let reloaded = MockBackend::new(b.file.parent().unwrap().to_path_buf());
+        assert_eq!(reloaded.get_project(&token, &project.id).await.unwrap().kind, ProjectKind::Algorithm);
+        assert_eq!(reloaded.get_project(&token, &normal_id).await.unwrap().kind, ProjectKind::Algorithm);
+        let mut legacy = serde_json::to_value(&project).unwrap();
+        legacy.as_object_mut().unwrap().remove("kind");
+        assert_eq!(serde_json::from_value::<Project>(legacy).unwrap().kind, ProjectKind::Normal);
     }
 
     fn kind_of(e: &StreamEvent) -> &'static str {

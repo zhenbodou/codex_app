@@ -68,9 +68,19 @@ pub struct RegisterRequest {
 
 // ─────────────────────────── 项目 ───────────────────────────
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ProjectKind {
+    #[default]
+    Normal,
+    Algorithm,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Project {
+    #[serde(default)]
+    pub kind: ProjectKind,
     pub id: String,
     pub name: String,
     /// 项目在本地磁盘上的工作目录，等价于 `claude` 命令的 cwd。
@@ -88,6 +98,8 @@ pub struct Project {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateProjectRequest {
+    #[serde(default)]
+    pub kind: ProjectKind,
     pub name: String,
     pub path: String,
     pub description: Option<String>,
@@ -97,6 +109,7 @@ pub struct CreateProjectRequest {
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateProjectRequest {
+    pub kind: Option<ProjectKind>,
     pub name: Option<String>,
     pub path: Option<String>,
     pub description: Option<String>,

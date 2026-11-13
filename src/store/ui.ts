@@ -41,6 +41,9 @@ interface UiState {
 
   // 弹层开关。用集中管理而不是散在各组件里，方便快捷键和联动关闭。
   projectDialog: { open: boolean; editingId: string | null };
+  algorithmDialog: { projectId: string | null; busy: boolean };
+  openAlgorithmDialog: (projectId: string) => void;
+  closeAlgorithmDialog: () => void;
   skillsOpen: boolean;
   settingsOpen: boolean;
   commandPaletteOpen: boolean;
@@ -81,6 +84,11 @@ export const useUiStore = create<UiState>((set, get) => ({
   shortcutsOpen: false,
   setShortcutsOpen: (open) => set({ shortcutsOpen: open }),
   projectDialog: { open: false, editingId: null },
+  algorithmDialog: { projectId: null, busy: false },
+  openAlgorithmDialog: (projectId) => set({ algorithmDialog: { projectId, busy: false } }),
+  closeAlgorithmDialog: () => {
+    if (!get().algorithmDialog.busy) set({ algorithmDialog: { projectId: null, busy: false } });
+  },
   skillsOpen: false,
   settingsOpen: false,
   commandPaletteOpen: false,
@@ -114,6 +122,10 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   closeTopmost: () => {
     const s = get();
+    if (s.algorithmDialog.projectId) {
+      s.closeAlgorithmDialog();
+      return true;
+    }
     if (s.shortcutsOpen) {
       s.setShortcutsOpen(false);
       return true;

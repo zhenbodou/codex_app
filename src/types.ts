@@ -36,7 +36,10 @@ export interface RegisterRequest {
   name: string;
 }
 
+export type ProjectKind = "normal" | "algorithm";
+
 export interface Project {
+  kind: ProjectKind;
   id: string;
   name: string;
   path: string;
@@ -48,6 +51,7 @@ export interface Project {
 }
 
 export interface CreateProjectRequest {
+  kind?: ProjectKind;
   name: string;
   path: string;
   description?: string | null;
@@ -55,6 +59,7 @@ export interface CreateProjectRequest {
 }
 
 export interface UpdateProjectRequest {
+  kind?: ProjectKind;
   name?: string;
   path?: string;
   description?: string | null;

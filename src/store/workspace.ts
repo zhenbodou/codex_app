@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { toast, useUiStore } from "@/store/ui";
 import { api, ApiError } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
-import type { Project, Session } from "@/types";
+import type { CreateProjectRequest, Project, Session } from "@/types";
 
 /**
  * 侧边栏状态：项目列表、每个项目下的会话、当前展开与选中项。
@@ -19,12 +19,7 @@ interface WorkspaceState {
   loadingProjects: boolean;
 
   loadProjects: () => Promise<void>;
-  createProject: (input: {
-    name: string;
-    path: string;
-    description?: string;
-    color?: string;
-  }) => Promise<Project | null>;
+  createProject: (input: CreateProjectRequest) => Promise<Project | null>;
   updateProject: (id: string, patch: Partial<Project>) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
 
@@ -37,6 +32,7 @@ interface WorkspaceState {
   selectSession: (projectId: string, sessionId: string) => void;
   selectProject: (projectId: string) => void;
   startNewSession: (projectId?: string) => void;
+  beginSession: (projectId: string | null) => void;
   reset: () => void;
 }
 
@@ -107,11 +103,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
     }
   },
 
-  createProject: async ({ name, path, description, color }) => {
+  createProject: async ({ name, path, description, color, kind }) => {
     const t = token();
     if (!t) return null;
     try {
       const project = await api.createProject(t, {
+        kind,
         name,
         path,
         description,
@@ -123,6 +120,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
         activeProjectId: project.id,
         activeSessionId: null,
       }));
+      if (project.kind === "algorithm") useUiStore.getState().openAlgorithmDialog(project.id);
       toast.success(`项目「${project.name}」已创建`);
       return project;
     } catch (e) {
@@ -259,6 +257,14 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   startNewSession: (projectId) => {
     const id = projectId ?? get().activeProjectId;
+    if (id && get().projects.find(p => p.id === id)?.kind === "algorithm") {
+      useUiStore.getState().openAlgorithmDialog(id);
+      return;
+    }
+    get().beginSession(id);
+  },
+
+  beginSession: (id) => {
     useUiStore.getState().activateComposer(`new:${id ?? "none"}`);
     useUiStore.getState().setComposerDraft("");
     set({ activeProjectId: id, activeSessionId: null });
