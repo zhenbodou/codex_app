@@ -419,3 +419,19 @@ pub struct UsageStats {
     pub input_tokens: u64,
     pub output_tokens: u64,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionApproval {
+    pub id: String,
+    pub session_id: String,
+    pub command: String,
+    pub reason: Option<String>,
+    pub cwd: Option<String>,
+    pub created_at: String,
+    pub expires_at: String,
+}
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ApprovalResolution {
+    pub status: String,
+}

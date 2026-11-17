@@ -118,7 +118,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         const err = e as ApiError;
         const message = err?.message || "请求失败";
         update(sessionId, current => ({ ...current, messages: current.messages.map(m => m.id === assistantId ? {
-          ...m, status: "error", blocks: m.blocks.length ? m.blocks : [{ type: "text", text: message }],
+          ...m, status: "error", blocks: m.blocks.some(b => b.type === "text" && b.text.includes(message)) ? m.blocks : [...m.blocks, { type: "text", text: `执行失败：${message}` }],
         } : m), streamingId: null, isStreaming: false, error: message }));
         status(sessionId, "error");
         if (err?.isUnauthorized) useAuthStore.getState().forceLogout();

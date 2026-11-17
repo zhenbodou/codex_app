@@ -249,3 +249,15 @@ export const ACCENTS = [
   { name: "琥珀", value: "#E0A458" },
   { name: "青", value: "#56B6C2" },
 ] as const;
+
+
+export interface SessionApproval {
+  id: string;
+  sessionId: string;
+  command: string;
+  reason: string | null;
+  cwd: string | null;
+  createdAt: string;
+  expiresAt: string;
+}
+export interface ApprovalResolution { status: "allowed" | "denied" | "timeout" | "pending" }

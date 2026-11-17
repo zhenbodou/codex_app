@@ -78,6 +78,8 @@ pub fn run() {
             // 本地能力
             commands::pick_directory,
             commands::pick_model_files,
+            commands::list_session_approvals,
+            commands::resolve_session_approval,
             commands::import_model_files
         ])
         .run(tauri::generate_context!())

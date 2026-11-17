@@ -437,3 +437,38 @@ pub async fn import_model_files(
     .map_err(|e| AppError::Internal(format!("导入模型失败: {e}")))?
     .map_err(Into::into)
 }
+
+#[tauri::command]
+pub async fn list_session_approvals(
+    state: tauri::State<'_, AppState>,
+    token: String,
+    session_id: String,
+) -> AppResult<Vec<SessionApproval>> {
+    if state.api.mode().await == BackendMode::Mock {
+        return Ok(Vec::new());
+    }
+    state
+        .api
+        .remote
+        .session_approvals(&token, &session_id)
+        .await
+        .map_err(Into::into)
+}
+#[tauri::command]
+pub async fn resolve_session_approval(
+    state: tauri::State<'_, AppState>,
+    token: String,
+    session_id: String,
+    request_id: String,
+    decision: String,
+) -> AppResult<ApprovalResolution> {
+    if state.api.mode().await != BackendMode::Remote {
+        return Err(AppError::BadRequest("审批仅用于远程后端".into()).into());
+    }
+    state
+        .api
+        .remote
+        .resolve_approval(&token, &session_id, &request_id, &decision)
+        .await
+        .map_err(Into::into)
+}

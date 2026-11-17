@@ -142,6 +142,38 @@ impl RemoteBackend {
         Ok(model)
     }
 
+    pub async fn session_approvals(
+        &self,
+        token: &str,
+        session: &str,
+    ) -> Result<Vec<SessionApproval>, AppError> {
+        self.send::<Value, _>(
+            reqwest::Method::GET,
+            &format!("/sessions/{session}/approvals"),
+            token,
+            None,
+        )
+        .await
+    }
+    pub async fn resolve_approval(
+        &self,
+        token: &str,
+        session: &str,
+        request: &str,
+        decision: &str,
+    ) -> Result<ApprovalResolution, AppError> {
+        if !matches!(decision, "allow" | "deny") {
+            return Err(AppError::BadRequest("审批决定必须为 allow 或 deny".into()));
+        }
+        self.send(
+            reqwest::Method::POST,
+            &format!("/sessions/{session}/approvals/{request}"),
+            token,
+            Some(json!({"decision":decision})),
+        )
+        .await
+    }
+
     pub async fn set_base_url(&self, url: &str) {
         *self.base_url.write().await = url.trim_end_matches('/').to_string();
     }

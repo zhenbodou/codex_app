@@ -1,3 +1,4 @@
+import { SessionApprovals } from "@/components/SessionApprovals";
 import { useEffect, useLayoutEffect } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { SessionDetails } from "@/components/SessionDetails";
@@ -130,7 +131,7 @@ export function Shell() {
 
       <main className={empty ? "chat-workspace is-empty" : "chat-workspace"}>
         <ChatHeader />
-        <div className="conversation-body"><MessageList onSend={setDraft} /><Composer /></div>
+        <div className="conversation-body"><MessageList onSend={setDraft} /><SessionApprovals /><Composer /></div>
       </main>
       <SessionDetails />
 

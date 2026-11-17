@@ -1,3 +1,4 @@
+import type { SessionApproval, ApprovalResolution } from "@/types";
 import type { ModelFile } from "@/lib/algorithm";
 import { invoke } from "@tauri-apps/api/core";
 import type {
@@ -126,6 +127,10 @@ export const api = {
     call<Session>("rename_session", { token, id, title }),
   deleteSession: (token: string, id: string) =>
     call<void>("delete_session", { token, id }),
+
+  listSessionApprovals: (token: string, sessionId: string) => call<SessionApproval[]>("list_session_approvals", { token, sessionId }),
+  resolveSessionApproval: (token: string, sessionId: string, requestId: string, decision: "allow" | "deny") =>
+    call<ApprovalResolution>("resolve_session_approval", { token, sessionId, requestId, decision }),
 
   // ── 消息 ──
   listMessages: (token: string, sessionId: string) =>

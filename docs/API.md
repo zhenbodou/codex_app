@@ -908,3 +908,10 @@ Rust 权威定义在 `src-tauri/src/models.rs`，TypeScript 镜像在 `src/types
 远程上传接口：`POST /v1/projects/{projectId}/models?filename=<URL编码的文件名>`，Bearer 鉴权，`Content-Type: application/octet-stream`，请求体为文件字节。响应 `201`：`{ id, projectId, name, path, size, createdAt }`。单文件大于 0 且不超过 8 GiB。返回 `400`（非法文件名、空文件、普通目录）、`401`（未认证）、`404`（项目不存在或越权）、`413`（超限）。文件存放于后端实际工作区下的 `megvii-models/<用户>/<项目>/<上传>/<原文件名>`，不会使用客户端 Windows 项目路径作为写入位置。
 
 `DELETE /v1/projects/{projectId}/models/{modelId}` 返回 `204`，用于撤销本批次中已经上传成功的文件；如果后续文件失败，桌面原生层会尽力撤销此前文件并保留需求表单，不创建会话。删除项目也会清理相应文件。需求只在上传成功后引用服务器实际路径；不支持上传的旧后端会显示错误，不会悄悄退回发送 Windows 路径。模型下载链接仍放入需求，是否访问由后端执行与审批策略决定。
+
+
+## 桌面人工审批
+
+`GET /v1/sessions/{sessionId}/approvals` 返回当前用户、当前会话的待审批数组：`{id, sessionId, command, reason, cwd, createdAt, expiresAt}`。`POST /v1/sessions/{sessionId}/approvals/{requestId}` 请求 `{decision:"allow"}` 或 `{decision:"deny"}`，返回 `{status:"allowed"|"denied"|"timeout"}`。仅接受明确的本次决定；跨用户或跨会话返回 404，重复决定幂等，过期请求不能被重新批准。原生桥接命令为 `list_session_approvals` 和 `resolve_session_approval`。
+
+远程模式桌面会持续查询当前会话待审批操作，展示完整命令、原因和截止时间。用户检查后可选择“允许本次”或“拒绝”。不自动放行，也不改变后端沙箱与审批策略。审批等待期间 SSE 保持连接；工具输出和真实失败原因会同时流送及保存，连接错误不会因已有正文而被界面隐藏。
