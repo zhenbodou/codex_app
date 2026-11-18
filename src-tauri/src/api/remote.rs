@@ -174,6 +174,67 @@ impl RemoteBackend {
         .await
     }
 
+    pub async fn snapshot(&self) -> Self {
+        Self {
+            http: self.http.clone(),
+            base_url: RwLock::new(self.base_url.read().await.clone()),
+        }
+    }
+    pub async fn mirror_scope(&self, token: &str, project: &str) -> Result<String, AppError> {
+        use sha2::{Digest, Sha256};
+        let user = self.me(token).await?;
+        Ok(format!(
+            "{:x}",
+            Sha256::digest(format!(
+                "{}\n{}\n{}",
+                self.base_url.read().await,
+                user.id,
+                project
+            ))
+        ))
+    }
+    pub async fn project_manifest(
+        &self,
+        token: &str,
+        project: &str,
+    ) -> Result<Vec<crate::project_sync::FileEntry>, AppError> {
+        self.send::<Value, _>(
+            reqwest::Method::GET,
+            &format!("/projects/{project}/files"),
+            token,
+            None,
+        )
+        .await
+    }
+    pub async fn project_file(
+        &self,
+        token: &str,
+        project: &str,
+        path: &str,
+        version: &str,
+    ) -> Result<reqwest::Response, AppError> {
+        let mut url = reqwest::Url::parse(&self.url(&format!("/projects/{project}/file")).await)
+            .map_err(|e| AppError::BadRequest(e.to_string()))?;
+        url.query_pairs_mut()
+            .append_pair("path", path)
+            .append_pair("version", version);
+        let response = self
+            .http
+            .get(url)
+            .bearer_auth(token)
+            .timeout(std::time::Duration::from_secs(3600))
+            .send()
+            .await
+            .map_err(|e| AppError::Network(e.to_string()))?;
+        if !response.status().is_success() {
+            return Err(map_http(
+                response.status(),
+                &response.text().await.unwrap_or_default(),
+            ));
+        }
+        Ok(response)
+    }
+
     pub async fn set_base_url(&self, url: &str) {
         *self.base_url.write().await = url.trim_end_matches('/').to_string();
     }

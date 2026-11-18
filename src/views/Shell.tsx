@@ -1,3 +1,4 @@
+import { useProjectMirrors } from "@/store/projectFiles";
 import { SessionApprovals } from "@/components/SessionApprovals";
 import { useEffect, useLayoutEffect } from "react";
 import { Sidebar } from "@/components/Sidebar";
@@ -25,6 +26,7 @@ import { useUiStore } from "@/store/ui";
  * 桌面布局包含会话侧栏、聊天区和可调整宽度的会话详情。
  */
 export function Shell() {
+  useProjectMirrors();
   const activeSessionId = useWorkspaceStore((s) => s.activeSessionId);
   const activeProjectId = useWorkspaceStore(s => s.activeProjectId);
   const loadMessages = useChatStore((s) => s.loadMessages);

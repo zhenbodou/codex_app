@@ -10,6 +10,7 @@ use serde_json::Value;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::mpsc;
 
+use crate::api::ApiClient;
 use crate::error::{AppError, AppResult, ErrorDto};
 use crate::models::*;
 use crate::state::AppState;
@@ -103,10 +104,22 @@ pub async fn create_project(
     req: CreateProjectRequest,
 ) -> AppResult<Project> {
     let state = state.inner().clone();
-    client!(state)
-        .create_project(&token, req)
-        .await
-        .map_err(Into::into)
+    let path = req.path.clone();
+    let remote = state.api.mode().await == BackendMode::Remote;
+    if remote
+        && (!std::path::Path::new(&path).is_absolute() || !std::path::Path::new(&path).is_dir())
+    {
+        return Err(AppError::BadRequest("请选择已存在的本地目录".into()).into());
+    }
+    let project = client!(state).create_project(&token, req).await?;
+    if remote {
+        let scope = state.api.remote.mirror_scope(&token, &project.id).await?;
+        if let Err(error) = state.project_sync.bind(&scope, &path).await {
+            let _ = state.api.remote.delete_project(&token, &project.id).await;
+            return Err(error.into());
+        }
+    }
+    Ok(project)
 }
 
 #[tauri::command]
@@ -143,10 +156,16 @@ pub async fn delete_project(
     id: String,
 ) -> AppResult<()> {
     let state = state.inner().clone();
-    client!(state)
-        .delete_project(&token, &id)
-        .await
-        .map_err(Into::into)
+    let scope = if state.api.mode().await == BackendMode::Remote {
+        Some(state.api.remote.mirror_scope(&token, &id).await?)
+    } else {
+        None
+    };
+    client!(state).delete_project(&token, &id).await?;
+    if let Some(scope) = scope {
+        state.project_sync.unbind(&scope).await?;
+    }
+    Ok(())
 }
 
 // ─────────────────────────── 会话 ───────────────────────────
@@ -471,4 +490,81 @@ pub async fn resolve_session_approval(
         .resolve_approval(&token, &session_id, &request_id, &decision)
         .await
         .map_err(Into::into)
+}
+
+#[tauri::command]
+pub async fn bind_project_directory(
+    state: tauri::State<'_, AppState>,
+    token: String,
+    project_id: String,
+    path: String,
+) -> AppResult<()> {
+    let state = state.inner().clone();
+    state.api.remote.get_project(&token, &project_id).await?;
+    let scope = state.api.remote.mirror_scope(&token, &project_id).await?;
+    state
+        .project_sync
+        .bind(&scope, &path)
+        .await
+        .map_err(Into::into)
+}
+#[tauri::command]
+pub async fn sync_project_files(
+    state: tauri::State<'_, AppState>,
+    token: String,
+    project_id: String,
+) -> AppResult<crate::project_sync::SyncResult> {
+    let state = state.inner().clone();
+    if state.api.mode().await == BackendMode::Mock {
+        let p = client!(state).get_project(&token, &project_id).await?;
+        return crate::project_sync::browse(std::path::Path::new(&p.path)).map_err(Into::into);
+    }
+    let remote = state.api.remote.snapshot().await;
+    let scope = remote.mirror_scope(&token, &project_id).await?;
+    state
+        .project_sync
+        .sync(&remote, &token, &project_id, &scope)
+        .await
+        .map_err(Into::into)
+}
+async fn project_local_root(
+    state: &AppState,
+    token: &str,
+    project: &str,
+) -> Result<std::path::PathBuf, AppError> {
+    if state.api.mode().await == BackendMode::Mock {
+        return Ok(std::fs::canonicalize(
+            state.api.mock.get_project(token, project).await?.path,
+        )?);
+    }
+    state.api.remote.get_project(token, project).await?;
+    let scope = state.api.remote.mirror_scope(token, project).await?;
+    state.project_sync.local_root(&scope).await
+}
+#[tauri::command]
+pub async fn read_project_file(
+    state: tauri::State<'_, AppState>,
+    token: String,
+    project_id: String,
+    path: String,
+) -> AppResult<crate::project_sync::FilePreview> {
+    let root = project_local_root(state.inner(), &token, &project_id).await?;
+    tokio::task::spawn_blocking(move || crate::project_sync::preview(&root, &path))
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+        .map_err(Into::into)
+}
+#[tauri::command]
+pub async fn open_project_directory(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+    token: String,
+    project_id: String,
+) -> AppResult<()> {
+    use tauri_plugin_opener::OpenerExt;
+    let root = project_local_root(state.inner(), &token, &project_id).await?;
+    app.opener()
+        .open_path(crate::project_sync::display_path(&root), None::<&str>)
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+    Ok(())
 }

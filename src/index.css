@@ -682,3 +682,11 @@ button:disabled { cursor: default; }
 .algorithm-preview summary { cursor: pointer; }
 .algorithm-preview pre { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 12px; line-height: 1.8; font: inherit; user-select: text; }
 .algorithm-preview p { margin-top: 10px; color: var(--text-faint); }
+
+.project-file-row { display:flex; align-items:center; gap:5px; width:100%; padding:5px 6px; font-size:11px; text-align:left; border-radius:4px; }
+.project-file-row:hover, .project-file-row:focus-visible { background:var(--surface-2); }
+.project-file-row svg { flex-shrink:0; color:var(--text-dim); }
+.project-file-action { display:inline-flex; align-items:center; gap:4px; padding:5px 7px; border:1px solid var(--line); border-radius:5px; font-size:10px; }
+.project-file-action:hover { background:var(--surface-2); }
+.project-file-action:disabled { opacity:.4; }
+.project-code-preview { max-height:60vh; overflow:auto; padding:16px; border:1px solid var(--line); border-radius:6px; background:var(--bg-deep); font:12px/1.7 var(--font-mono); white-space:pre; tab-size:4; }

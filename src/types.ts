@@ -261,3 +261,7 @@ export interface SessionApproval {
   expiresAt: string;
 }
 export interface ApprovalResolution { status: "allowed" | "denied" | "timeout" | "pending" }
+
+export interface ProjectFileEntry { path: string; kind: "file" | "directory"; size: number; version: string }
+export interface ProjectSyncResult { localPath: string | null; files: ProjectFileEntry[]; conflicts: string[]; syncedAt: string }
+export interface ProjectFilePreview { path: string; content: string | null; size: number; binary: boolean; tooLarge: boolean }

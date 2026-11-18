@@ -13,6 +13,7 @@ use crate::api::{Api, CancelFlag};
 #[derive(Clone)]
 pub struct AppState {
     pub api: Arc<Api>,
+    pub project_sync: Arc<crate::project_sync::ProjectSync>,
     /// session_id -> 该会话当前流式回复的取消开关。
     /// 前端点「停止」时把对应 flag 置 true，生成循环会在下一个 tick 退出。
     pub cancels: Arc<RwLock<HashMap<String, CancelFlag>>>,
@@ -21,7 +22,8 @@ pub struct AppState {
 impl AppState {
     pub fn new(data_dir: std::path::PathBuf) -> Self {
         AppState {
-            api: Arc::new(Api::new(data_dir)),
+            api: Arc::new(Api::new(data_dir.clone())),
+            project_sync: Arc::new(crate::project_sync::ProjectSync::new(data_dir)),
             cancels: Arc::new(RwLock::new(HashMap::new())),
         }
     }

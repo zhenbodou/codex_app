@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "checks": [
+    "bind-directory",
+    "expand-tree",
+    "preview-code",
+    "binary-notice",
+    "open-local-folder",
+    "filter",
+    "conflict-notice",
+    "background-sync",
+    "project-switch-isolation"
+  ]
+}

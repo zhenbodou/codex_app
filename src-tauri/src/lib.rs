@@ -3,6 +3,7 @@ mod commands;
 mod error;
 mod model_files;
 mod models;
+mod project_sync;
 mod state;
 
 use state::AppState;
@@ -80,6 +81,10 @@ pub fn run() {
             commands::pick_model_files,
             commands::list_session_approvals,
             commands::resolve_session_approval,
+            commands::sync_project_files,
+            commands::bind_project_directory,
+            commands::read_project_file,
+            commands::open_project_directory,
             commands::import_model_files
         ])
         .run(tauri::generate_context!())

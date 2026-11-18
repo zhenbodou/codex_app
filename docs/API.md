@@ -915,3 +915,16 @@ Rust 权威定义在 `src-tauri/src/models.rs`，TypeScript 镜像在 `src/types
 `GET /v1/sessions/{sessionId}/approvals` 返回当前用户、当前会话的待审批数组：`{id, sessionId, command, reason, cwd, createdAt, expiresAt}`。`POST /v1/sessions/{sessionId}/approvals/{requestId}` 请求 `{decision:"allow"}` 或 `{decision:"deny"}`，返回 `{status:"allowed"|"denied"|"timeout"}`。仅接受明确的本次决定；跨用户或跨会话返回 404，重复决定幂等，过期请求不能被重新批准。原生桥接命令为 `list_session_approvals` 和 `resolve_session_approval`。
 
 远程模式桌面会持续查询当前会话待审批操作，展示完整命令、原因和截止时间。用户检查后可选择“允许本次”或“拒绝”。不自动放行，也不改变后端沙箱与审批策略。审批等待期间 SSE 保持连接；工具输出和真实失败原因会同时流送及保存，连接错误不会因已有正文而被界面隐藏。
+
+
+## 项目文件镜像与浏览
+
+- `sync_project_files {token, projectId}` → `{localPath, files: [{path, kind, size, version}], conflicts: string[], syncedAt}`。
+- `bind_project_directory {token, projectId, path}` 将用户选定的本机目录关联到该服务器、账号、项目，不允许项目目录相互嵌套。
+- `read_project_file {token, projectId, path}` → `{path, content, size, binary, tooLarge}`，只读取绑定目录内的 UTF-8 文件（最多 2 MB）。
+- `open_project_directory {token, projectId}` 在系统文件管理器中打开本机目录。
+
+对应 HTTP：`GET /v1/projects/{id}/files` 和 `GET /v1/projects/{id}/file?path=...&version=...`，均需 Bearer Token，版本变化返回 409。
+当前项目每 2 秒、后台项目每 10 秒自动同步，不依赖右侧面板是否打开。项目列表每 10 秒刷新。
+仅远端到本机；保留本地冲突，删除仅影响未经本地修改且确认为曾同步的文件。
+新项目自动绑定；旧项目及其他电脑需在右侧“关联本地目录”。代码预览、文件筛选和“打开本地目录”均位于右侧项目文件面板。

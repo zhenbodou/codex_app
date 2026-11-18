@@ -1,3 +1,4 @@
+import { ProjectFiles } from "@/components/ProjectFiles";
 import { useState, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Folder, Activity, X, Layers } from "lucide-react";
@@ -32,6 +33,7 @@ export function SessionDetails() {
       onPointerUp={e => { drag.current = null; e.currentTarget.releasePointerCapture(e.pointerId); }} onPointerCancel={() => { drag.current = null; }} />
     <div className="flex h-12 shrink-0 items-center justify-between border-b px-4"><span className="text-[12px] font-medium">会话详情</span><button type="button" className="desktop-icon" onClick={toggle} aria-label="关闭会话详情"><X size={15} /></button></div>
     <div className="min-h-0 overflow-y-auto p-3">
+      <ProjectFiles />
       <section className="details-card">
         <div className="flex items-center gap-2 text-[12px] text-dim"><Folder size={14} />项目</div>
         <p className="mt-3 truncate text-[13px]">{project?.name ?? "尚未选择项目"}</p>

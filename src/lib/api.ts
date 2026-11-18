@@ -1,3 +1,4 @@
+import type { ProjectSyncResult, ProjectFilePreview } from "@/types";
 import type { SessionApproval, ApprovalResolution } from "@/types";
 import type { ModelFile } from "@/lib/algorithm";
 import { invoke } from "@tauri-apps/api/core";
@@ -97,6 +98,11 @@ export async function call<T>(
  * 参数名必须和 Rust 侧一致（snake_case → camelCase），命令名保持原样不转换。
  */
 export const api = {
+  syncProjectFiles: (token: string, projectId: string) => call<ProjectSyncResult>("sync_project_files", {token, projectId}, Number.POSITIVE_INFINITY),
+  bindProjectDirectory: (token: string, projectId: string, path: string) => call<void>("bind_project_directory", {token, projectId, path}),
+  readProjectFile: (token: string, projectId: string, path: string) => call<ProjectFilePreview>("read_project_file", {token, projectId, path}),
+  openProjectDirectory: (token: string, projectId: string) => call<void>("open_project_directory", {token, projectId}),
+
   // ── 鉴权 ──
   login: (req: LoginRequest) => call<AuthResponse>("login", { req }),
   register: (req: RegisterRequest) => call<AuthResponse>("register", { req }),
