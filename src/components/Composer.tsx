@@ -2,10 +2,11 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUp, Square, Plus, X, Folder, Monitor, ChevronDown, Check } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { useSettingsStore } from "@/store/settings";
 import { useChatStore } from "@/store/chat";
 import { useSkillsStore } from "@/store/skills";
 import { useWorkspaceStore } from "@/store/workspace";
-import { MODE_LABEL, useUiStore, type UiMode } from "@/store/ui";
+import { MODE_LABEL, MODE_ORDER, MODE_DESCRIPTION, useUiStore } from "@/store/ui";
 import { SkillIcon } from "@/components/SkillIcon";
 import { ModelMenu } from "@/components/ChatHeader";
 import { StatusLine } from "@/components/StatusLine";
@@ -16,6 +17,7 @@ export function Composer() {
   const value = useUiStore(s => s.composerDraft);
   const setValue = useUiStore(s => s.setComposerDraft);
   const uiMode = useUiStore(s => s.uiMode);
+  const modelSaving=useSettingsStore(s=>s.modelSaving);
   const openProjectDialog = useUiStore(s => s.openProjectDialog);
   const setSkillsOpen = useUiStore(s => s.setSkillsOpen);
   const project = useWorkspaceStore(s => s.projects.find(p => p.id === s.activeProjectId));
@@ -56,7 +58,7 @@ export function Composer() {
   };
   const submit = async () => {
     const text = value.trim();
-    if (!text || streaming || loading || sending.current) return;
+    if (!text || streaming || loading || sending.current || modelSaving) return;
     const ws = useWorkspaceStore.getState();
     if (!ws.activeProjectId) { openProjectDialog(null); return; }
     if (!ws.activeSessionId && project?.kind === "algorithm") {
@@ -104,11 +106,11 @@ export function Composer() {
               {menu === "folder" && <div role="menu" className="desktop-menu absolute bottom-full left-0 z-40 mb-2 w-64 p-1">{projects.map(p => <button key={p.id} type="button" role="menuitem" className="desktop-menu-item" onClick={() => { useWorkspaceStore.getState().startNewSession(p.id); setMenu(null); }}><Folder size={14} /><span className="truncate">{p.name}</span></button>)}<button type="button" role="menuitem" className="desktop-menu-item border-t" onClick={() => { setMenu(null); openProjectDialog(null); }}><Plus size={14} />添加项目文件夹…</button></div>}
             </div>
             <div ref={menu === "mode" ? popup : undefined} className="relative">
-              <button type="button" className="composer-control" onClick={() => setMenu(menu === "mode" ? null : "mode")} aria-expanded={menu === "mode"} aria-haspopup="menu">{MODE_LABEL[uiMode]}<ChevronDown size={11} /></button>
-              {menu === "mode" && <div role="menu" className="desktop-menu absolute bottom-full left-0 z-40 mb-2 w-48 p-1">{(["normal", "auto-accept", "plan"] as UiMode[]).map(mode => <button type="button" key={mode} role="menuitemradio" aria-checked={uiMode === mode} className="desktop-menu-item" onClick={() => { useUiStore.setState({ uiMode: mode }); setMenu(null); }}><span className="flex-1">{MODE_LABEL[mode]}</span>{uiMode === mode && <Check size={14} />}</button>)}</div>}
+              <button type="button" className="composer-control" title={`${MODE_DESCRIPTION[uiMode]} 切换从下一次发送开始生效。`} onClick={() => setMenu(menu === "mode" ? null : "mode")} aria-expanded={menu === "mode"} aria-haspopup="menu">{MODE_LABEL[uiMode]}<ChevronDown size={11} /></button>
+              {menu === "mode" && <div role="menu" className="desktop-menu absolute bottom-full left-0 z-40 mb-2 w-80 p-1">{MODE_ORDER.map(mode => <button type="button" key={mode} role="menuitemradio" aria-checked={uiMode === mode} className="desktop-menu-item" onClick={() => { useUiStore.getState().setPermissionMode(mode); setMenu(null); }}><span className="flex-1"><span className="block">{MODE_LABEL[mode]}</span><span className="mt-1 block whitespace-normal text-[11px] text-faint">{MODE_DESCRIPTION[mode]}</span></span>{uiMode === mode && <Check size={14} />}</button>)}</div>}
             </div>
             <div className="ml-auto min-w-0"><ModelMenu /></div>
-            <motion.button type="button" whileTap={{ scale: 0.95 }} disabled={!streaming && (!value.trim() || creating)} onClick={() => streaming ? void useChatStore.getState().stop() : void submit()} aria-label={streaming ? "停止生成" : "发送"} className={cn("composer-send", streaming && "is-streaming")}>{streaming ? <Square size={12} fill="currentColor" /> : <ArrowUp size={17} strokeWidth={2.2} />}</motion.button>
+            <motion.button type="button" whileTap={{ scale: 0.95 }} disabled={!streaming && (!value.trim() || creating || modelSaving)} onClick={() => streaming ? void useChatStore.getState().stop() : void submit()} aria-label={streaming ? "停止生成" : "发送"} className={cn("composer-send", streaming && "is-streaming")}>{streaming ? <Square size={12} fill="currentColor" /> : <ArrowUp size={17} strokeWidth={2.2} />}</motion.button>
           </div>
         </div>
       </div>

@@ -9,6 +9,10 @@ interface SettingsState {
   models: ModelInfo[];
   stats: UsageStats | null;
   loading: boolean;
+  modelSaving: boolean;
+  modelListLoading: boolean;
+  refreshModels: () => Promise<void>;
+  selectModel: (id: string) => Promise<boolean>;
 
   load: () => Promise<void>;
   loadStats: () => Promise<void>;
@@ -23,6 +27,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   models: [],
   stats: null,
   loading: false,
+  modelSaving: false,
+  modelListLoading:false,
 
   load: async () => {
     const t = useAuthStore.getState().token;
@@ -56,7 +62,42 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
   },
 
+  refreshModels: async () => {
+    const token=useAuthStore.getState().token;
+    if (!token || get().modelListLoading) return;
+    set({modelListLoading:true});
+    try {
+      const models=await api.listModels(token);
+      if (useAuthStore.getState().token===token) set({models});
+    } catch(error) {if (useAuthStore.getState().token===token) toast.error("刷新模型列表失败",(error as Error).message);}
+    finally {set({modelListLoading:false});}
+  },
+
+  selectModel: async (id) => {
+    const token=useAuthStore.getState().token;
+    if (!token || get().modelSaving || !get().models.some(m=>m.id===id)) return false;
+    const previous=get().settings;
+    set({modelSaving:true});
+    try {
+      const saved=await api.updateSettings(token,{model:id});
+      if (useAuthStore.getState().token!==token || get().settings?.apiBaseUrl!==previous?.apiBaseUrl) return false;
+      if (saved.model!==id) throw new Error("后端未确认所选模型，请更新后端后重试");
+      set({settings:saved});applyTheme(saved);
+      toast.success("模型选择已保存",`${id} · 从下一条消息开始使用，执行确认会显示在回复中`);
+      return true;
+    } catch(error) {
+      if (useAuthStore.getState().token===token) toast.error("切换模型失败",(error as Error).message);
+      return false;
+    } finally {set({modelSaving:false});}
+  },
+
   patch: async (p) => {
+    if (p.model!==undefined) {
+      if (!await get().selectModel(p.model)) return;
+      const {model:_model,...other}=p;
+      if (!Object.keys(other).length) return;
+      p=other;
+    }
     const t = useAuthStore.getState().token;
     if (!t) return;
 
@@ -89,7 +130,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
   },
 
-  reset: () => set({ settings: null, models: [], stats: null, loading: false }),
+  reset: () => set({ settings: null, models: [], stats: null, loading: false, modelSaving:false, modelListLoading:false }),
 }));
 
 /**

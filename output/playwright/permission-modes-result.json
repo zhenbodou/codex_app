@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "checks": [
+    "safe-default",
+    "full-access-sent",
+    "request-approval-sent",
+    "auto-review-sent",
+    "remember-choice",
+    "invalid-choice-safe-default"
+  ]
+}

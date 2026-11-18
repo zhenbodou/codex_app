@@ -125,7 +125,10 @@ export interface Message {
   usage: Usage | null;
 }
 
+export type PermissionMode = "full-access" | "request-approval" | "auto-review";
+
 export interface SendMessageRequest {
+  permissionMode?: PermissionMode;
   content: string;
   skills?: string[] | null;
   model?: string | null;

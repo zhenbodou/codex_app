@@ -233,9 +233,20 @@ pub struct Message {
     pub usage: Option<Usage>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum PermissionMode {
+    FullAccess,
+    #[default]
+    RequestApproval,
+    AutoReview,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SendMessageRequest {
+    #[serde(default)]
+    pub permission_mode: PermissionMode,
     pub content: String,
     /// 本次提问临时启用的技能 id，会覆盖会话默认配置。
     #[serde(default)]
@@ -434,4 +445,33 @@ pub struct SessionApproval {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ApprovalResolution {
     pub status: String,
+}
+
+#[cfg(test)]
+mod permission_tests {
+    use super::*;
+    #[test]
+    fn message_permissions_are_validated_and_serialized_for_remote() {
+        for (mode, value) in [
+            (PermissionMode::FullAccess, "full-access"),
+            (PermissionMode::RequestApproval, "request-approval"),
+            (PermissionMode::AutoReview, "auto-review"),
+        ] {
+            let req: SendMessageRequest = serde_json::from_value(
+                serde_json::json!({"content":"test","permissionMode":value}),
+            )
+            .unwrap();
+            assert_eq!(req.permission_mode, mode);
+            assert_eq!(serde_json::to_value(req).unwrap()["permissionMode"], value);
+        }
+        let req: SendMessageRequest =
+            serde_json::from_value(serde_json::json!({"content":"test"})).unwrap();
+        assert_eq!(req.permission_mode, PermissionMode::RequestApproval);
+        assert!(
+            serde_json::from_value::<SendMessageRequest>(
+                serde_json::json!({"content":"test","permissionMode":"never"})
+            )
+            .is_err()
+        );
+    }
 }

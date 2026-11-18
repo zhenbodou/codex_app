@@ -11,15 +11,22 @@ export interface ToastItem {
 }
 
 /** 权限模式，对应终端里 shift+tab 循环的那三档。 */
-export type UiMode = "normal" | "auto-accept" | "plan";
-
-const MODE_ORDER: UiMode[] = ["normal", "auto-accept", "plan"];
-
+export type UiMode = import("@/types").PermissionMode;
+export const MODE_ORDER: UiMode[] = ["full-access", "request-approval", "auto-review"];
 export const MODE_LABEL: Record<UiMode, string> = {
-  normal: "手动确认",
-  "auto-accept": "接受编辑",
-  plan: "计划模式",
+  "full-access": "完全权限",
+  "request-approval": "请求审批",
+  "auto-review": "帮我审批",
 };
+export const MODE_DESCRIPTION: Record<UiMode, string> = {
+  "full-access": "直接执行，可读写远程容器内当前用户可访问的文件并访问网络。",
+  "request-approval": "使用项目沙箱，需要授权的操作等待你允许或拒绝。",
+  "auto-review": "使用项目沙箱，需要授权的操作交给 Codex 自动审查，可批准或拒绝。",
+};
+function savedMode(): UiMode {
+  try { const mode = localStorage.getItem("megvii-permission-mode") as UiMode; if (MODE_ORDER.includes(mode)) return mode; } catch { /* Use the safe default. */ }
+  return "request-approval";
+}
 
 interface UiState {
   toasts: ToastItem[];
@@ -52,6 +59,7 @@ interface UiState {
   dismissToast: (id: string) => void;
   toggleSidebar: () => void;
   cycleMode: () => void;
+  setPermissionMode: (mode: UiMode) => void;
   toggleVerbose: () => void;
 
   openProjectDialog: (editingId?: string | null) => void;
@@ -66,7 +74,7 @@ interface UiState {
 export const useUiStore = create<UiState>((set, get) => ({
   toasts: [],
   sidebarCollapsed: false,
-  uiMode: "normal",
+  uiMode: savedMode(),
   verbose: false,
   transcriptView: "normal",
   setTranscriptView: (view) => set({ transcriptView: view, verbose: view === "verbose" }),
@@ -105,10 +113,16 @@ export const useUiStore = create<UiState>((set, get) => ({
 
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
+  setPermissionMode: (mode) => {
+    if (!MODE_ORDER.includes(mode)) return;
+    try { localStorage.setItem("megvii-permission-mode", mode); } catch { /* Session selection still works. */ }
+    set({ uiMode: mode });
+  },
+
   cycleMode: () => {
     const next =
       MODE_ORDER[(MODE_ORDER.indexOf(get().uiMode) + 1) % MODE_ORDER.length];
-    set({ uiMode: next });
+    get().setPermissionMode(next);
   },
 
   toggleVerbose: () => set((s) => ({ verbose: !s.verbose, transcriptView: s.verbose ? "normal" : "verbose" })),

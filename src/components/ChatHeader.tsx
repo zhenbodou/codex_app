@@ -62,17 +62,22 @@ export function ModelMenu() {
   const box = useRef<HTMLDivElement>(null);
   const models = useSettingsStore(s => s.models);
   const current = useSettingsStore(s => s.settings?.model);
-  const patch = useSettingsStore(s => s.patch);
+  const selectModel = useSettingsStore(s => s.selectModel);
+  const saving = useSettingsStore(s => s.modelSaving);
+  const refreshing=useSettingsStore(s=>s.modelListLoading);
+  const refreshModels=useSettingsStore(s=>s.refreshModels);
   usePopup(box, open, () => setOpen(false));
   useEffect(() => { const show = () => setOpen(true); window.addEventListener("composer-model-menu", show); return () => window.removeEventListener("composer-model-menu", show); }, []);
   return <div ref={box} className="relative min-w-0">
-    <button type="button" onClick={() => setOpen(!open)} aria-label="选择模型" aria-haspopup="listbox" aria-expanded={open} className="composer-control">
+    <button type="button" disabled={saving} title="模型切换从下一条消息开始生效" onClick={() => setOpen(!open)} aria-label="选择模型" aria-haspopup="listbox" aria-expanded={open} className="composer-control">
       <span className="max-w-[20ch] truncate">{models.find(m => m.id === current)?.name ?? current ?? "选择模型"}</span><ChevronDown size={12} />
     </button>
     <AnimatePresence>{open && <motion.div role="listbox" aria-label="模型" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={desktopTransition} className="desktop-menu absolute bottom-full right-0 z-40 mb-2 w-72 p-1">
+      <p className="px-3 py-2 text-[11px] text-faint">{saving?"正在等待后端保存…":"下一条消息使用所选模型；回复中显示执行确认。"}</p>
+      <button type="button" className="desktop-menu-item text-[11px]" disabled={refreshing||saving} onClick={()=>void refreshModels()}>{refreshing?"正在刷新模型…":"刷新模型列表"}</button>
       {!models.length && <p className="p-3 text-[12px] text-faint">没有可用模型，请检查设置。</p>}
-      {models.map(m => <button key={m.id} role="option" aria-selected={m.id === current} onClick={() => { void patch({ model: m.id }); setOpen(false); }} className="desktop-menu-item">
-        <span className="min-w-0 flex-1"><span className="block truncate">{m.name}</span><span className="block text-[11px] text-faint">{Math.round(m.contextWindow / 1000)}k 上下文</span></span>
+      {models.map(m => <button key={m.id} role="option" aria-selected={m.id === current} disabled={saving} onClick={() => { void selectModel(m.id).then(ok=>{if(ok)setOpen(false);}); }} className="desktop-menu-item">
+        <span className="min-w-0 flex-1"><span className="block truncate">{m.name}</span><span className="block text-[11px] text-faint">{m.contextWindow>0?`${Math.round(m.contextWindow / 1000)}k 上下文`:m.description || "后端可选模型"}</span></span>
         {m.id === current && <Check size={14} />}
       </button>)}
     </motion.div>}</AnimatePresence>

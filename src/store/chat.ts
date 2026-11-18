@@ -5,9 +5,10 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { api, ApiError } from "@/lib/api";
 import { applyStreamEvent } from "@/lib/blocks";
 import { subscribeStream } from "@/lib/stream";
-import { toast } from "@/store/ui";
+import { toast, useUiStore } from "@/store/ui";
 import { useAuthStore } from "@/store/auth";
 import { useWorkspaceStore } from "@/store/workspace";
+import { useSettingsStore } from "@/store/settings";
 import type { Message, StreamPayload, Usage } from "@/types";
 
 interface Conversation {
@@ -98,6 +99,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       const previous = get().threads[sessionId] ?? (get().activeChatId === sessionId ? get() : blank());
       if (previous.isStreaming) { toast.info("这个会话正在生成回复"); return; }
       if (get().activeChatId === sessionId && get().loading) return;
+      if (useSettingsStore.getState().modelSaving) {toast.info("正在保存模型选择，请稍候再发送");return;}
+      const selectedModel=useSettingsStore.getState().settings?.model;
       const epoch = generation;
       ++loadSeq;
       const stamp = new Date().toISOString();
@@ -108,7 +111,7 @@ export const useChatStore = create<ChatState>((set, get) => {
       set(s => ({ ...view, activeChatId: sessionId, threads: { ...s.threads, [sessionId]: view } }));
       status(sessionId, "streaming");
       try {
-        const final = await api.sendMessage(token, sessionId, { content: content.trim(), skills: skillIds ?? null });
+        const final = await api.sendMessage(token, sessionId, { content: content.trim(), skills: skillIds ?? null, permissionMode: useUiStore.getState().uiMode, model:selectedModel });
         if (epoch !== generation || useAuthStore.getState().token !== token) return;
         update(sessionId, current => ({ ...current, messages: current.messages.map(m => m.id === assistantId ? { ...final, id: assistantId } : m), streamingId: null, isStreaming: false, lastUsage: final.usage }));
         status(sessionId, final.status === "error" ? "error" : "idle", get().threads[sessionId]?.messages.length);

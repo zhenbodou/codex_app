@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "checks": [
+    "wait-for-save",
+    "block-keyboard-send-while-saving",
+    "selected-model-sent",
+    "worker-confirmation",
+    "switch-next-turn-only",
+    "per-reply-model-history",
+    "failed-save-keeps-selection",
+    "mismatched-save-keeps-selection",
+    "refresh-models"
+  ]
+}

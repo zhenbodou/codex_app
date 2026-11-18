@@ -928,3 +928,23 @@ Rust 权威定义在 `src-tauri/src/models.rs`，TypeScript 镜像在 `src/types
 当前项目每 2 秒、后台项目每 10 秒自动同步，不依赖右侧面板是否打开。项目列表每 10 秒刷新。
 仅远端到本机；保留本地冲突，删除仅影响未经本地修改且确认为曾同步的文件。
 新项目自动绑定；旧项目及其他电脑需在右侧“关联本地目录”。代码预览、文件筛选和“打开本地目录”均位于右侧项目文件面板。
+
+
+## 执行权限模式
+
+消息请求新增 `permissionMode`，取值为 `full-access`（完全权限）、`request-approval`（请求审批）、`auto-review`（帮我审批）；省略时为请求审批。输入框权限菜单会记住本机选择，每次发送都携带模式；切换仅影响下一轮，不处理当前待审批项。
+
+- 完全权限：`approvalPolicy=never`、`sandboxPolicy.type=dangerFullAccess`，直接在远程容器的运行用户权限内执行，可访问网络。
+- 请求审批：`approvalPolicy=untrusted`、`approvalsReviewer=user`，项目可写沙箱，额外操作交给用户允许或拒绝。
+- 帮我审批：`approvalPolicy=on-request`、`approvalsReviewer=guardian_subagent`，项目可写沙箱；Codex 根据上下文审查额外授权，可能批准或拒绝。自动审查失败不会降级为全部允许。
+
+`GET /v1/capabilities` 返回 `permissions: {version: 1, modes: [...]}`。桌面端发送消息前验证该能力；旧后端不支持时会停止发送并提示更新后端。每轮强制设置全部执行策略，避免从完全权限切回后残留权限。后端 `audit_logs` 中 `permission_mode_selected` 保存用户、会话、选择模式与实际下发策略。
+
+
+## 模型选择与确认
+
+`GET /v1/models` 返回 Worker 的 `model/list` 结果（真实调用使用条目的 `model` ID），并补充 Worker 配置中的默认模型和部署端 `GATEWAY_MODELS` 逗号分隔列表。不会写死展示模型。`GET /v1/settings` 会把旧 `default` 别名解析为具体模型，PATCH 的模型必须在后端列表中。
+
+每条消息携带 `model`，后端验证后显式传入 `turn/start.params.model`。Worker 接受该轮后才发送带模型名的 `start` 事件、保存模型名及 `model_accepted` 审计。拒绝时不显示确认、不自动回退；客户端收到不匹配的模型名会请求停止。能力接口新增 `modelSelection.version=1`，用于阻止旧后端静默忽略模型字段。
+
+界面区分“模型选择已保存”和回复中的“Worker 已接受 / 调用完成 / 调用失败”。切换从下一条消息生效，已开始的回复保留原模型。该确认表示 Worker 接受了模型参数，无法核实上游网关对别名的内部路由。

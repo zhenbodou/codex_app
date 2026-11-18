@@ -1161,6 +1161,7 @@ mod tests {
                 &token,
                 &session,
                 SendMessageRequest {
+                    permission_mode: PermissionMode::RequestApproval,
                     content: "这段代码报错了，帮我看看".into(),
                     skills: None,
                     model: None,
@@ -1243,6 +1244,7 @@ mod tests {
                 &token,
                 &session,
                 SendMessageRequest {
+                    permission_mode: PermissionMode::RequestApproval,
                     content: "帮我重构这个模块并解释原理".into(),
                     skills: None,
                     model: None,

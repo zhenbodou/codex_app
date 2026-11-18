@@ -1,3 +1,4 @@
+import { useSettingsStore } from "@/store/settings";
 import { memo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertOctagon, Check, Copy, RotateCcw } from "lucide-react";
@@ -128,6 +129,7 @@ function AssistantMessage({
   showThinking: boolean;
 }) {
   const [copied, setCopied] = useState(false);
+  const remote=useSettingsStore(s=>s.settings?.backendMode==="remote");
   const failed = message.status === "error";
   const cancelled = message.status === "cancelled";
 
@@ -173,6 +175,9 @@ function AssistantMessage({
           )}
         </AnimatePresence>
 
+        {remote && message.model && message.model!=="default" && <p role="status" className="mt-2 break-all text-[11px] text-faint" title="模型名来自后端；Worker 接受参数不代表能核实上游网关内部的模型路由。">
+          本轮模型：{message.model} · {failed?"调用失败":cancelled?"已中断":streaming?"Worker 已接受":"调用完成"}
+        </p>}
         <AnimatePresence>
           {!streaming && !failed && (
             <motion.div

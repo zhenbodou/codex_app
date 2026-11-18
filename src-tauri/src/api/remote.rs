@@ -588,6 +588,41 @@ impl ApiClient for RemoteBackend {
         tx: mpsc::UnboundedSender<StreamEvent>,
         cancel: CancelFlag,
     ) -> Result<Message, AppError> {
+        // Check BEFORE starting a turn: old gateways silently ignored unknown
+        // fields, which could make a permission selector appear to work.
+        let capabilities = self
+            .send::<Value, Value>(reqwest::Method::GET, "/capabilities", token, None)
+            .await
+            .map_err(|error| match error {
+                AppError::Unauthorized => AppError::Unauthorized,
+                _ => AppError::BadRequest(
+                    "无法确认远程后端的权限模式支持，请更新后端并检查连接；本次消息未发送".into(),
+                ),
+            })?;
+        if req.model.as_ref().is_some_and(|m| m != "default")
+            && capabilities
+                .pointer("/modelSelection/version")
+                .and_then(Value::as_u64)
+                != Some(1)
+        {
+            return Err(AppError::BadRequest(
+                "远程后端尚未支持模型切换，请更新后端；本次消息未发送".into(),
+            ));
+        }
+        let selected = serde_json::to_value(req.permission_mode)?;
+        if capabilities
+            .pointer("/permissions/version")
+            .and_then(Value::as_u64)
+            != Some(1)
+            || !capabilities
+                .pointer("/permissions/modes")
+                .and_then(Value::as_array)
+                .is_some_and(|m| m.contains(&selected))
+        {
+            return Err(AppError::BadRequest(
+                "远程后端不支持所选权限模式，请更新后端；本次消息未发送".into(),
+            ));
+        }
         let url = self.url(&format!("/sessions/{session_id}/messages")).await;
         let resp = self
             .http
@@ -659,6 +694,19 @@ impl ApiClient for RemoteBackend {
                             message_id: mid,
                             model: m,
                         } => {
+                            if req
+                                .model
+                                .as_deref()
+                                .is_some_and(|requested| requested != "default" && requested != m)
+                            {
+                                let _ = self
+                                    .http
+                                    .post(self.url(&format!("/sessions/{session_id}/cancel")).await)
+                                    .bearer_auth(token)
+                                    .send()
+                                    .await;
+                                return Err(AppError::Conflict("后端确认的模型与所选模型不一致，已请求停止；请更新后端并重新选择模型".into()));
+                            }
                             message_id = mid.clone();
                             model = Some(m.clone());
                         }
@@ -871,5 +919,102 @@ mod model_upload_tests {
         );
         server.await.unwrap();
         std::fs::remove_dir_all(root).unwrap();
+    }
+    #[tokio::test]
+    async fn unsupported_permission_backend_never_starts_a_turn() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut connection, headers, _) = read_request(&listener).await;
+            assert!(headers.starts_with("GET /v1/capabilities "));
+            reply(
+                &mut connection,
+                "404 Not Found",
+                r#"{"message":"old backend"}"#,
+            )
+            .await;
+            drop(connection);
+            assert!(
+                tokio::time::timeout(std::time::Duration::from_millis(200), listener.accept())
+                    .await
+                    .is_err()
+            );
+        });
+        let backend = RemoteBackend::with_url(format!("http://{address}/v1"));
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let result = backend
+            .send_message(
+                "test",
+                "session",
+                SendMessageRequest {
+                    content: "test".into(),
+                    skills: None,
+                    model: None,
+                    permission_mode: PermissionMode::FullAccess,
+                },
+                tx,
+                std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            )
+            .await;
+        assert!(matches!(result, Err(AppError::BadRequest(_))));
+        server.await.unwrap();
+    }
+    #[tokio::test]
+    async fn model_selection_rejects_old_gateway_and_mismatched_acknowledgment() {
+        for supported in [false, true] {
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            let server = tokio::spawn(async move {
+                let (mut cap, headers, _) = read_request(&listener).await;
+                assert!(headers.starts_with("GET /v1/capabilities "));
+                let mut capabilities =
+                    json!({"permissions":{"version":1,"modes":["request-approval"]}});
+                if supported {
+                    capabilities["modelSelection"] = json!({"version":1});
+                }
+                reply(&mut cap, "200 OK", &capabilities.to_string()).await;
+                drop(cap);
+                if supported {
+                    let (mut turn, headers, body) = read_request(&listener).await;
+                    assert!(headers.starts_with("POST /v1/sessions/session/messages "));
+                    assert_eq!(
+                        serde_json::from_slice::<Value>(&body).unwrap()["model"],
+                        "chosen-model"
+                    );
+                    reply(&mut turn,"200 OK","data: {\"type\":\"start\",\"messageId\":\"reply\",\"model\":\"wrong-model\"}\n\n").await;
+                    drop(turn);
+                    let (mut cancel, headers, _) = read_request(&listener).await;
+                    assert!(headers.starts_with("POST /v1/sessions/session/cancel "));
+                    reply(&mut cancel, "204 No Content", "").await;
+                } else {
+                    assert!(
+                        tokio::time::timeout(
+                            std::time::Duration::from_millis(200),
+                            listener.accept()
+                        )
+                        .await
+                        .is_err()
+                    );
+                }
+            });
+            let backend = RemoteBackend::with_url(format!("http://{address}/v1"));
+            let (tx, _rx) = mpsc::unbounded_channel();
+            let result = backend
+                .send_message(
+                    "test",
+                    "session",
+                    SendMessageRequest {
+                        content: "test".into(),
+                        skills: None,
+                        model: Some("chosen-model".into()),
+                        permission_mode: PermissionMode::RequestApproval,
+                    },
+                    tx,
+                    std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                )
+                .await;
+            assert!(result.is_err());
+            server.await.unwrap();
+        }
     }
 }
