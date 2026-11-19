@@ -1,8 +1,8 @@
-import { memo, useState } from "react";
+import { Children, isValidElement, memo, useEffect, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
-import { Check, Copy } from "lucide-react";
+import { Check, Code2, Copy, WrapText } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 /**
@@ -26,6 +26,7 @@ export const Markdown = memo(function Markdown({
         rehypePlugins={[rehypeHighlight]}
         components={{
           pre: CodeBlock,
+          table: ({ children }) => <div className="md-table-scroll" tabIndex={0} role="region" aria-label="表格，可横向滚动"><table>{children}</table></div>,
           // 链接一律在新窗口打开，且交给系统浏览器而不是 WebView
           a: ({ href, children }) => (
             <a href={href} title={href} target="_blank" rel="noreferrer noopener">
@@ -46,49 +47,52 @@ export const Markdown = memo(function Markdown({
  * react-markdown 会把 ```lang 渲染成 <pre><code class="language-lang">，
  * 这里拦截 pre，把 code 原样塞回去，外面套工具条。
  */
-function CodeBlock({ children }: { children?: React.ReactNode }) {
-  const [copied, setCopied] = useState(false);
+function plainText(children: ReactNode): string {
+  return Children.toArray(children).map(child => {
+    if (typeof child === "string" || typeof child === "number") return String(child);
+    return isValidElement<{ children?: ReactNode }>(child) ? plainText(child.props.children) : "";
+  }).join("");
+}
 
-  const child = Array.isArray(children) ? children[0] : children;
-  const props = (child as { props?: { className?: string; children?: string } })
-    ?.props;
-  const lang =
-    props?.className?.replace(/^language-/, "").split(" ")[0] || "text";
-  const code = String(props?.children ?? "").replace(/\n$/, "");
+function CodeBlock({ children }: { children?: ReactNode }) {
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const [wrap, setWrap] = useState(false);
+
+  const codeElement = Children.toArray(children).find(child => isValidElement(child) && child.type === "code");
+  const classes = isValidElement<{ className?: string }>(codeElement) ? codeElement.props.className : undefined;
+  const language = classes?.split(/\s+/).find(name => name.startsWith("language-"))?.slice(9) || "text";
+  const code = plainText(children).replace(/\n$/, "");
+  const lineCount = code.split("\n").length;
+  useEffect(() => {
+    if (copyStatus === "idle") return;
+    const timeout = window.setTimeout(() => setCopyStatus("idle"), 1800);
+    return () => window.clearTimeout(timeout);
+  }, [copyStatus]);
 
   async function copy() {
     try {
       await navigator.clipboard.writeText(code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
+      setCopyStatus("copied");
     } catch {
-      // WebView 里 clipboard API 可能被拒，静默失败即可
+      setCopyStatus("failed");
     }
   }
 
   return (
-    <div className="group/code relative my-3 overflow-hidden rounded-lg border border-line bg-code-bg">
-      <div className="flex items-center justify-between border-b border-line bg-surface-2/60 px-3 py-1.5">
-        <span className="font-mono text-[10.5px] tracking-wider text-faint uppercase">
-          {lang}
-        </span>
-        <button
-          onClick={copy}
-          className={cn(
-            "flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10.5px] transition-all",
-            copied
-              ? "text-ok opacity-100"
-              : "text-faint opacity-0 group-hover/code:opacity-100 hover:text-text",
-          )}
-          aria-label="复制代码"
-        >
-          {copied ? <Check size={11} /> : <Copy size={11} />}
-          {copied ? "已复制" : "复制"}
-        </button>
+    <div className="code-panel">
+      <div className="code-panel-bar">
+        <span className="code-language"><Code2 size={14} aria-hidden="true" />{language}</span>
+        <span className="code-line-count">{lineCount} 行</span>
+        <div className="code-panel-actions">
+          <button type="button" aria-label="自动换行" aria-pressed={wrap} onClick={() => setWrap(!wrap)}><WrapText size={14} aria-hidden="true" /><span>换行</span></button>
+          <button type="button" aria-label="复制代码" data-copy={copyStatus} onClick={copy}>
+            {copyStatus === "copied" ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+            <span>{copyStatus === "copied" ? "已复制" : copyStatus === "failed" ? "复制失败" : "复制"}</span>
+          </button>
+          <span className="sr-only" role="status">{copyStatus === "copied" ? "代码已复制" : copyStatus === "failed" ? "无法复制，请手动选中代码" : ""}</span>
+        </div>
       </div>
-      <pre className="!my-0 !rounded-none !border-0">
-        <code className={props?.className}>{code}</code>
-      </pre>
+      <pre tabIndex={0} aria-label={`${language} 代码`} data-wrap={wrap}>{children}</pre>
     </div>
   );
 }

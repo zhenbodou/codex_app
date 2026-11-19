@@ -7,6 +7,7 @@ import { fullTime } from "@/lib/format";
 import { Markdown } from "@/components/Markdown";
 import { ThinkingBlock } from "@/components/ThinkingBlock";
 import { ToolBlock } from "@/components/ToolBlock";
+import { ClaudeMark } from "@/components/ClaudeMark";
 import type { ContentBlock, Message } from "@/types";
 
 /**
@@ -60,7 +61,7 @@ function UserMessage({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-      className="group/msg relative px-6 py-3 sm:px-10"
+      className="relative py-3"
     >
       <div className="user-message-bubble flex gap-3">
         <div className="min-w-0 flex-1">
@@ -71,7 +72,7 @@ function UserMessage({
             {text}
           </pre>
 
-          <div className="mt-1.5 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover/msg:opacity-100">
+          <div className="message-actions justify-end">
             <span className="font-mono text-[11px] text-faint">
               {fullTime(message.createdAt)}
             </span>
@@ -143,9 +144,14 @@ function AssistantMessage({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-      className="group/msg relative px-6 py-3 sm:px-10"
+      className="relative py-3"
     >
-      <div className="min-w-0 space-y-0.5">
+      <div className="assistant-reply" data-streaming={streaming}>
+        <div className="assistant-heading">
+          <span className="assistant-mark"><ClaudeMark className="h-4 w-4" /></span>
+          <span>Megvii Code</span>
+          {streaming && <span className="assistant-live" aria-hidden="true" />}
+        </div>
         <Blocks
           blocks={message.blocks}
           streaming={streaming}
@@ -184,12 +190,11 @@ function AssistantMessage({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.08, duration: 0.2 }}
-              className="mt-1.5 flex items-center gap-1 opacity-0 transition-opacity duration-150 group-hover/msg:opacity-100"
+              className="message-actions"
             >
               <span className="font-mono text-[11px] text-faint">
                 {message.model ?? ""}
-                {message.usage &&
-                  ` · ${message.usage.inputTokens + message.usage.outputTokens} tok`}
+                {message.usage && `${message.model ? " · " : ""}${message.usage.inputTokens + message.usage.outputTokens} tok`}
               </span>
               {fullText && (
                 <MiniAction

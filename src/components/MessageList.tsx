@@ -53,13 +53,13 @@ export function MessageList({ onSend }: { onSend: (text: string) => void }) {
   }, [messages]);
 
   return (
-    <div ref={scroller} className="relative min-h-0 flex-1 overflow-y-auto">
+    <div ref={scroller} className="transcript-scroller relative min-h-0 flex-1 overflow-y-auto">
       {loading ? (
         <LoadingRows />
       ) : messages.length === 0 && !error ? (
-        <EmptyState onPick={onSend} />
+        <EmptyState />
       ) : (
-        <div className="mx-auto w-full max-w-3xl pb-8">
+        <div className="conversation-transcript chat-column pb-8">
           <AnimatePresence initial={false}>
             {messages.map((m) => (
               <MessageItem
@@ -79,7 +79,7 @@ export function MessageList({ onSend }: { onSend: (text: string) => void }) {
                 initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
-                className="mx-6 mt-2 flex items-center gap-2 rounded-lg border border-err/30 bg-err/10 px-3 py-2 text-[12.5px] text-err sm:mx-10"
+                className="mt-2 flex items-center gap-2 rounded-lg border border-err/30 bg-err/10 px-3 py-2 text-[12.5px] text-err"
               >
                 <MessageSquareWarning size={14} className="shrink-0" />
                 {error}
@@ -96,7 +96,7 @@ export function MessageList({ onSend }: { onSend: (text: string) => void }) {
 /** 加载中的骨架行，避免白屏突兀。 */
 function LoadingRows() {
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5 px-6 py-8 sm:px-10">
+    <div className="chat-column space-y-5 py-8">
       {[0, 1, 2].map((i) => (
         <div key={i} className="flex gap-3">
           <span className={cn("mt-1 h-2 w-2 shrink-0 rounded-full bg-line-strong")} />

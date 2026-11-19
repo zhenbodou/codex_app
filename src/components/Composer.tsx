@@ -43,9 +43,22 @@ export function Composer() {
   useLayoutEffect(() => {
     const el = ta.current;
     if (!el) return;
-    el.style.height = "auto";
-    el.style.height = Math.max(96, Math.min(el.scrollHeight, 280)) + "px";
-    el.style.overflowY = el.scrollHeight > 280 ? "auto" : "hidden";
+    const fit = () => {
+      el.style.height = "auto";
+      const contentHeight = el.scrollHeight;
+      const maxHeight = Number.parseFloat(getComputedStyle(el).maxHeight);
+      el.style.height = `${Math.min(contentHeight, maxHeight)}px`;
+      el.style.overflowY = contentHeight > maxHeight ? "auto" : "hidden";
+    };
+    fit();
+    let width = el.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (width === el.clientWidth) return;
+      width = el.clientWidth;
+      fit();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
   }, [value]);
   useEffect(() => { if (value) ta.current?.focus(); }, [value]);
   usePopup(popup, menu !== null, () => setMenu(null));
@@ -90,7 +103,7 @@ export function Composer() {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submit(); }
   };
   return <div ref={box} className="composer-wrap">
-    <div className="composer-inner">
+    <div className="composer-inner chat-column">
       <AnimatePresence>{streaming && <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={desktopTransition} className="overflow-hidden"><StatusLine tokens={usage ? usage.inputTokens + usage.outputTokens : 0} /></motion.div>}</AnimatePresence>
       <div className="relative">
         <AnimatePresence>{slashOpen && <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={desktopTransition} className="desktop-menu absolute bottom-full left-0 right-0 z-30 mb-2 p-1" role="listbox" aria-label="技能">
@@ -98,7 +111,7 @@ export function Composer() {
         </motion.div>}</AnimatePresence>
         <div className="desktop-composer">
           {selected.length > 0 && <div className="flex flex-wrap gap-1.5 px-4 pt-3">{skills.filter(s => selected.includes(s.id)).map(s => <span key={s.id} className="inline-flex items-center gap-1.5 rounded-md border bg-surface-2 px-2 py-1 text-[11px] text-dim"><SkillIcon name={s.icon} size={12} />{s.name}<button type="button" onClick={() => toggleSelected(s.id)} aria-label={"移除技能 " + s.name}><X size={12} /></button></span>)}</div>}
-          <textarea ref={ta} value={value} onChange={e => setValue(e.target.value)} onKeyDown={keyDown} rows={3} spellCheck={false} aria-label="给 Megvii Code 的任务" placeholder="你想要完成什么？" data-selectable className="composer-textarea" />
+          <textarea ref={ta} value={value} onChange={e => setValue(e.target.value)} onKeyDown={keyDown} rows={1} spellCheck={false} aria-label="给 Megvii Code 的任务" placeholder="说明你想完成的任务…" data-selectable className="composer-textarea" />
           <div className="composer-toolbar">
             <button type="button" className="desktop-icon" onClick={() => setSkillsOpen(true)} aria-label="添加技能" title="添加技能"><Plus size={18} /></button>
             <div ref={menu === "folder" ? popup : undefined} className="relative min-w-0">
@@ -110,7 +123,9 @@ export function Composer() {
               {menu === "mode" && <div role="menu" className="desktop-menu absolute bottom-full left-0 z-40 mb-2 w-80 p-1">{MODE_ORDER.map(mode => <button type="button" key={mode} role="menuitemradio" aria-checked={uiMode === mode} className="desktop-menu-item" onClick={() => { useUiStore.getState().setPermissionMode(mode); setMenu(null); }}><span className="flex-1"><span className="block">{MODE_LABEL[mode]}</span><span className="mt-1 block whitespace-normal text-[11px] text-faint">{MODE_DESCRIPTION[mode]}</span></span>{uiMode === mode && <Check size={14} />}</button>)}</div>}
             </div>
             <div className="ml-auto min-w-0"><ModelMenu /></div>
-            <motion.button type="button" whileTap={{ scale: 0.95 }} disabled={!streaming && (!value.trim() || creating || modelSaving)} onClick={() => streaming ? void useChatStore.getState().stop() : void submit()} aria-label={streaming ? "停止生成" : "发送"} className={cn("composer-send", streaming && "is-streaming")}>{streaming ? <Square size={12} fill="currentColor" /> : <ArrowUp size={17} strokeWidth={2.2} />}</motion.button>
+            <button type="button" disabled={!streaming && (!value.trim() || creating || modelSaving)} onClick={() => streaming ? void useChatStore.getState().stop() : void submit()} aria-label={streaming ? "停止生成" : "发送"} className={cn("composer-send", streaming && "is-streaming")}>
+              <span key={streaming ? "stop" : "send"} className="composer-send-icon" aria-hidden="true">{streaming ? <Square size={12} fill="currentColor" /> : <ArrowUp size={17} strokeWidth={2.2} />}</span>
+            </button>
           </div>
         </div>
       </div>

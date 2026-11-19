@@ -50,7 +50,7 @@ export function SessionApprovals() {
     finally { submitting.current = false; setBusy(null); }
   };
   if (!remote || view.session !== sessionId || (!view.requests.length && !view.error)) return null;
-  return <section aria-label="待审批操作" className="mx-auto max-h-[42vh] w-full max-w-[860px] shrink-0 space-y-3 overflow-y-auto px-5 py-3">
+  return <section aria-label="待审批操作" className="chat-column max-h-[42vh] shrink-0 space-y-3 overflow-y-auto py-3">
     {view.error && <p role="alert" className="text-[12px] text-err">{view.error}</p>}
     {view.requests.map(request => <article key={request.id} className="rounded-xl border border-accent/50 bg-surface p-4">
       <h3 className="flex items-center gap-2 text-[13px] font-semibold"><ShieldQuestion size={16} className="text-accent" />需要你的确认</h3>

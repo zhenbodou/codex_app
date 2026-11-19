@@ -5,6 +5,7 @@ Reference checked on 2026-10-23:
 - https://code.claude.com/docs/en/desktop
 - https://code.claude.com/docs/en/desktop-quickstart
 - https://claude.com/resources/articles/claude-code-desktop-redesign
+- https://openai.com/index/introducing-the-codex-app/ (Codex desktop workspace and project-grouped threads)
 
 The current documentation takes precedence over the older redesign announcement. In particular, transcript views are Normal, Thinking, and Verbose; Ctrl+O cycles them. Shift+Tab retains normal focus navigation on desktop.
 
@@ -22,6 +23,7 @@ The current documentation takes precedence over the older redesign announcement.
 - Ctrl+Tab session cycling, Ctrl+Shift+M permission menu, Ctrl+Shift+I model menu, Ctrl+/ shortcut reference, and keyboard menu navigation.
 - Modals contain keyboard focus and restore it on close. Menu Escape is consumed before the global stop shortcut.
 - The details rail stays beside the chat at the 940×600 desktop minimum, with composer controls wrapping instead of being covered by an overlay.
+- The Codex-inspired workspace places primary actions above the compact project tree, shows project and session breadcrumbs, and puts suggested tasks below the new-chat composer. The transcript, approvals, and composer use the same column width; the detail rail limits its width on smaller windows to keep the composer usable.
 
 ## Verification
 

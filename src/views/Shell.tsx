@@ -18,6 +18,7 @@ import { useWorkspaceStore } from "@/store/workspace";
 import { useSkillsStore } from "@/store/skills";
 import { useSettingsStore } from "@/store/settings";
 import { useUiStore } from "@/store/ui";
+import { WelcomeSuggestions } from "@/components/EmptyState";
 
 /**
  * 登录后的主界面骨架。
@@ -31,7 +32,7 @@ export function Shell() {
   const activeProjectId = useWorkspaceStore(s => s.activeProjectId);
   const loadMessages = useChatStore((s) => s.loadMessages);
   const clear = useChatStore((s) => s.clear);
-  const empty = useChatStore(s => s.messages.length === 0 && !s.loading);
+  const empty = useChatStore(s => s.messages.length === 0 && !s.loading && !s.error);
   const setDraft = useUiStore(s => s.setComposerDraft);
 
   /* 初始数据 */
@@ -133,7 +134,7 @@ export function Shell() {
 
       <main className={empty ? "chat-workspace is-empty" : "chat-workspace"}>
         <ChatHeader />
-        <div className="conversation-body"><MessageList onSend={setDraft} /><SessionApprovals /><Composer /></div>
+        <div className="conversation-body"><MessageList onSend={setDraft} /><SessionApprovals /><Composer />{empty && <WelcomeSuggestions onPick={setDraft} />}</div>
       </main>
       <SessionDetails />
 

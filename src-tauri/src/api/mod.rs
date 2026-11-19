@@ -123,7 +123,7 @@ impl Api {
         let url = saved
             .as_ref()
             .and_then(|v| v["baseUrl"].as_str())
-            .unwrap_or("http://127.0.0.1:8080/v1")
+            .unwrap_or("http://10.172.166.71:8080/v1")
             .to_string();
         Api {
             connection_path,

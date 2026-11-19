@@ -1,5 +1,5 @@
 import { ProjectFiles } from "@/components/ProjectFiles";
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Folder, Activity, X, Layers } from "lucide-react";
 import { useUiStore } from "@/store/ui";
@@ -9,6 +9,9 @@ import { useSettingsStore } from "@/store/settings";
 import { desktopTransition } from "@/lib/motion";
 import { cn } from "@/lib/cn";
 
+const MIN_DETAILS_WIDTH = 260;
+const getMaxDetailsWidth = () => Math.max(MIN_DETAILS_WIDTH, Math.min(460, Math.floor(window.innerWidth * 0.38)));
+
 export function SessionDetails() {
   const open = useUiStore(s => s.detailsOpen);
   const toggle = useUiStore(s => s.toggleDetails);
@@ -16,7 +19,15 @@ export function SessionDetails() {
   const messages = useChatStore(s => s.messages);
   const model = useSettingsStore(s => s.settings?.model);
   const models = useSettingsStore(s => s.models);
-  const [width, setWidth] = useState(300);
+  const [preferredWidth, setWidth] = useState(300);
+  const [maxWidth, setMaxWidth] = useState(getMaxDetailsWidth);
+  const clampWidth = (next: number) => Math.max(MIN_DETAILS_WIDTH, Math.min(maxWidth, next));
+  const width = clampWidth(preferredWidth);
+  useEffect(() => {
+    const resize = () => setMaxWidth(getMaxDetailsWidth());
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, []);
   const [contextOpen, setContextOpen] = useState(true);
   const [toolsOpen, setToolsOpen] = useState(true);
   const drag = useRef<{ x: number; width: number } | null>(null);
@@ -26,12 +37,12 @@ export function SessionDetails() {
   const percent = total > 0 ? Math.min(100, Math.round(used / total * 100)) : 0;
   const tools = messages.flatMap(m => m.blocks.filter(b => b.type === "tool_use"));
   return <AnimatePresence initial={false}>{open && <motion.aside aria-label="会话详情" initial={{ width: 0, opacity: 0 }} animate={{ width, opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={desktopTransition} className="session-details">
-    <div role="separator" aria-label="调整详情面板宽度" aria-orientation="vertical" aria-valuemin={260} aria-valuemax={460} aria-valuenow={width} tabIndex={0} className="pane-resizer"
-      onKeyDown={e => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); setWidth(w => Math.max(260, Math.min(460, w + (e.key === "ArrowLeft" ? 20 : -20)))); } }}
+    <div role="separator" aria-label="调整详情面板宽度" aria-orientation="vertical" aria-valuemin={MIN_DETAILS_WIDTH} aria-valuemax={maxWidth} aria-valuenow={width} tabIndex={0} className="pane-resizer"
+      onKeyDown={e => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); setWidth(clampWidth(width + (e.key === "ArrowLeft" ? 20 : -20))); } }}
       onPointerDown={e => { drag.current = { x: e.clientX, width }; e.currentTarget.setPointerCapture(e.pointerId); }}
-      onPointerMove={e => { if (drag.current) setWidth(Math.max(260, Math.min(460, drag.current.width + drag.current.x - e.clientX))); }}
+      onPointerMove={e => { if (drag.current) setWidth(clampWidth(drag.current.width + drag.current.x - e.clientX)); }}
       onPointerUp={e => { drag.current = null; e.currentTarget.releasePointerCapture(e.pointerId); }} onPointerCancel={() => { drag.current = null; }} />
-    <div className="flex h-12 shrink-0 items-center justify-between border-b px-4"><span className="text-[12px] font-medium">会话详情</span><button type="button" className="desktop-icon" onClick={toggle} aria-label="关闭会话详情"><X size={15} /></button></div>
+    <div className="details-header flex shrink-0 items-center justify-between border-b px-4"><span className="text-[12px] font-medium">会话详情</span><button type="button" className="desktop-icon" onClick={toggle} aria-label="关闭会话详情"><X size={15} /></button></div>
     <div className="min-h-0 overflow-y-auto p-3">
       <ProjectFiles />
       <section className="details-card">
